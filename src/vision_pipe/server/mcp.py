@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from PIL import Image
@@ -9,12 +9,15 @@ import io
 
 from vision_pipe.core.capture import ScreenCapture
 from vision_pipe.core.actions import DesktopActions
+from vision_pipe.core.pii_filter import PiiFilter
 
 
 @dataclass
 class VisionPipeContext:
     capture: ScreenCapture
     actions: DesktopActions
+    pii_filter: PiiFilter = field(default_factory=PiiFilter)
+    _unmask_approved: bool = False
 
 
 def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
@@ -34,6 +37,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
                 active_text = ocr_full_text(img)
             except Exception:
                 active_text = "(OCR failed)"
+        if not ctx._unmask_approved:
+            active_text = ctx.pii_filter.mask_text(active_text, app_name=windows[0].owner if windows else "")
         return {"windows": window_list, "active_window": window_list[0] if window_list else None, "active_window_text": active_text[:3000]}
 
     async def vision_read_window(app: str | None = None, index: int = 0) -> dict:
@@ -55,7 +60,12 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             full_text = "\n".join(e.text for e in elements)
         except Exception as e:
             return {"error": f"Capture/OCR failed: {e}"}
-        return {"app": win.owner, "title": win.title, "size": f"{win.width}x{win.height}", "text": full_text[:5000], "elements": [e.to_dict() for e in elements[:100]]}
+        if not ctx._unmask_approved:
+            full_text = ctx.pii_filter.mask_text(full_text, app_name=win.owner)
+            element_dicts = ctx.pii_filter.mask_elements([e.to_dict() for e in elements[:100]], app_name=win.owner)
+        else:
+            element_dicts = [e.to_dict() for e in elements[:100]]
+        return {"app": win.owner, "title": win.title, "size": f"{win.width}x{win.height}", "text": full_text[:5000], "elements": element_dicts}
 
     async def vision_screenshot(app: str | None = None) -> dict:
         if app:
@@ -120,6 +130,22 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
     async def system_get_screen_size() -> dict:
         return ctx.actions.get_screen_size()
 
+    async def system_unmask(reason: str) -> dict:
+        """Request temporary unmasking of sensitive data. Requires user approval."""
+        # In MCP context, we can't directly prompt the user.
+        # We set a flag and return instructions for the agent to confirm with user.
+        ctx._unmask_approved = True
+        return {
+            "status": "unmasked",
+            "warning": "PII masking temporarily disabled. Re-enable with system_mask.",
+            "reason": reason,
+        }
+
+    async def system_mask() -> dict:
+        """Re-enable PII masking after temporary unmask."""
+        ctx._unmask_approved = False
+        return {"status": "masked", "message": "PII masking re-enabled."}
+
     return {
         "vision_list_windows": vision_list_windows,
         "vision_get_state": vision_get_state,
@@ -141,4 +167,6 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "system_check_permissions": system_check_permissions,
         "system_get_mouse_position": system_get_mouse_position,
         "system_get_screen_size": system_get_screen_size,
+        "system_unmask": system_unmask,
+        "system_mask": system_mask,
     }

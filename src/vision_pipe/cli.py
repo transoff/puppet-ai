@@ -78,6 +78,8 @@ async def _run_mcp_server(cfg):
         "system_check_permissions": {"type": "object", "properties": {}},
         "system_get_mouse_position": {"type": "object", "properties": {}},
         "system_get_screen_size": {"type": "object", "properties": {}},
+        "system_unmask": {"type": "object", "properties": {"reason": {"type": "string", "description": "Why unmasking is needed"}}, "required": ["reason"]},
+        "system_mask": {"type": "object", "properties": {}},
     }
 
     TOOL_DESCRIPTIONS = {
@@ -101,6 +103,8 @@ async def _run_mcp_server(cfg):
         "system_check_permissions": "Check if accessibility permissions are granted for mouse/keyboard control",
         "system_get_mouse_position": "Get current mouse cursor coordinates",
         "system_get_screen_size": "Get screen dimensions in pixels",
+        "system_unmask": "Temporarily disable PII masking (API keys, cards, passwords hidden by default). Requires reason. Ask user for approval first.",
+        "system_mask": "Re-enable PII masking after temporary unmask",
     }
 
     @server.list_tools()
