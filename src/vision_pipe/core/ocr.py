@@ -53,6 +53,7 @@ def ocr_with_bounds(
     image_height: int | None = None,
     window_x: int = 0,
     window_y: int = 0,
+    mode: str = "accurate",
 ) -> list[OcrElement]:
     """Run OCR and return elements with bounding boxes in ABSOLUTE screen coordinates.
 
@@ -79,7 +80,10 @@ def ocr_with_bounds(
     ns_data = NSData.dataWithBytes_length_(image_bytes, len(image_bytes))
     handler = Vision.VNImageRequestHandler.alloc().initWithData_options_(ns_data, None)
     request = Vision.VNRecognizeTextRequest.alloc().init()
-    request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
+    if mode == "fast":
+        request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelFast)
+    else:
+        request.setRecognitionLevel_(Vision.VNRequestTextRecognitionLevelAccurate)
     request.setRecognitionLanguages_(languages)
 
     success, error = handler.performRequests_error_([request], None)
