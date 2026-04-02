@@ -1,0 +1,13 @@
+# vision-pipe.yaml.example
+
+peripheral:
+  provider: ollama/moondream2
+  resolution: 512x512
+
+foveal:
+  provider: sampling
+  hint: sonnet
+
+capture:
+  fps: 4
+  diff_threshold: 5
