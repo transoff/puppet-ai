@@ -17,8 +17,6 @@ def main():
 def serve(config: str | None, preset: str | None):
     """Start the MCP server."""
     import asyncio
-    import json
-    import sys
 
     from vision_pipe.config.presets import get_preset
     from vision_pipe.config.schema import VisionPipeConfig
@@ -29,9 +27,6 @@ def serve(config: str | None, preset: str | None):
         cfg = VisionPipeConfig.from_yaml(Path(config))
     else:
         cfg = VisionPipeConfig()
-
-    # All output to stderr — stdout is reserved for MCP protocol
-    print(f"vision-pipe: peripheral={cfg.peripheral.provider}, foveal={cfg.foveal.provider}", file=sys.stderr)
 
     asyncio.run(_run_mcp_server(cfg))
 
@@ -45,134 +40,89 @@ async def _run_mcp_server(cfg):
     from mcp.server.stdio import stdio_server
     from mcp.types import TextContent, Tool
 
+    from vision_pipe.core.actions import DesktopActions
     from vision_pipe.core.capture import ScreenCapture
-    from vision_pipe.core.foveal import FovealFocus
-    from vision_pipe.core.peripheral import PeripheralVision
-    from vision_pipe.core.world_model import WorldModel
-    from vision_pipe.providers.ollama import OllamaProvider
-    from vision_pipe.server.mcp import VisionMCPContext, create_vision_tools
+    from vision_pipe.instructions import MCP_INSTRUCTIONS
+    from vision_pipe.server.mcp import VisionPipeContext, create_all_tools
 
-    # Build components
-    peripheral_model = cfg.peripheral.provider.split("/")[-1] if "/" in cfg.peripheral.provider else cfg.peripheral.provider
-    peripheral_provider = OllamaProvider(model=peripheral_model)
-    foveal_provider = OllamaProvider(model=peripheral_model)  # same for now
-
-    peripheral = PeripheralVision(
-        provider=peripheral_provider,
-        resolution=cfg.peripheral.resolution_tuple(),
-    )
-    foveal = FovealFocus(provider=foveal_provider)
     capture = ScreenCapture()
-    world_model = WorldModel()
-
-    ctx = VisionMCPContext(
-        world_model=world_model,
-        peripheral=peripheral,
-        foveal=foveal,
-        capture=capture,
-    )
-    tools = create_vision_tools(ctx)
+    actions = DesktopActions(failsafe=True)
+    ctx = VisionPipeContext(capture=capture, actions=actions)
+    tools = create_all_tools(ctx)
 
     server = Server("vision-pipe")
 
+    TOOL_SCHEMAS = {
+        "vision_list_windows": {"type": "object", "properties": {}},
+        "vision_get_state": {"type": "object", "properties": {}},
+        "vision_read_window": {"type": "object", "properties": {
+            "app": {"type": "string", "description": "App name (partial match)"},
+            "index": {"type": "integer", "description": "Window index if multiple (default 0)"},
+        }},
+        "vision_screenshot": {"type": "object", "properties": {
+            "app": {"type": "string", "description": "App name, or omit for full screen"},
+        }},
+        "vision_get_changes": {"type": "object", "properties": {}},
+        "action_click": {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}, "button": {"type": "string", "enum": ["left", "right", "middle"]}, "clicks": {"type": "integer"}}, "required": ["x", "y"]},
+        "action_double_click": {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["x", "y"]},
+        "action_right_click": {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["x", "y"]},
+        "action_type_text": {"type": "object", "properties": {"text": {"type": "string"}, "interval": {"type": "number"}}, "required": ["text"]},
+        "action_press": {"type": "object", "properties": {"key": {"type": "string"}, "presses": {"type": "integer"}}, "required": ["key"]},
+        "action_hotkey": {"type": "object", "properties": {"keys": {"type": "array", "items": {"type": "string"}}}, "required": ["keys"]},
+        "action_scroll": {"type": "object", "properties": {"amount": {"type": "integer"}, "x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["amount"]},
+        "action_drag": {"type": "object", "properties": {"start_x": {"type": "integer"}, "start_y": {"type": "integer"}, "end_x": {"type": "integer"}, "end_y": {"type": "integer"}, "duration": {"type": "number"}}, "required": ["start_x", "start_y", "end_x", "end_y"]},
+        "action_move_mouse": {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["x", "y"]},
+        "action_activate_window": {"type": "object", "properties": {"app": {"type": "string"}}, "required": ["app"]},
+        "action_clipboard_copy": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]},
+        "action_clipboard_paste": {"type": "object", "properties": {}},
+        "system_check_permissions": {"type": "object", "properties": {}},
+        "system_get_mouse_position": {"type": "object", "properties": {}},
+        "system_get_screen_size": {"type": "object", "properties": {}},
+    }
+
+    TOOL_DESCRIPTIONS = {
+        "vision_list_windows": "List all visible windows on screen (app, title, size, window_id)",
+        "vision_get_state": "Get current screen state: all windows + OCR text of active window",
+        "vision_read_window": "Read text in a window via OCR — returns text with bounding box coordinates for clicking",
+        "vision_screenshot": "Capture screenshot of a window or full screen as base64 PNG",
+        "vision_get_changes": "Get recent screen changes",
+        "action_click": "Click at screen coordinates",
+        "action_double_click": "Double click at screen coordinates",
+        "action_right_click": "Right click at screen coordinates",
+        "action_type_text": "Type text at current cursor position",
+        "action_press": "Press a keyboard key (enter, tab, escape, space, up, down, etc.)",
+        "action_hotkey": 'Keyboard shortcut — e.g. ["cmd","c"] for copy, ["cmd","tab"] for app switch',
+        "action_scroll": "Scroll: positive=up, negative=down",
+        "action_drag": "Drag from (start_x, start_y) to (end_x, end_y)",
+        "action_move_mouse": "Move mouse cursor to coordinates without clicking",
+        "action_activate_window": "Bring an application window to the front",
+        "action_clipboard_copy": "Copy text to clipboard",
+        "action_clipboard_paste": "Get text from clipboard",
+        "system_check_permissions": "Check if accessibility permissions are granted for mouse/keyboard control",
+        "system_get_mouse_position": "Get current mouse cursor coordinates",
+        "system_get_screen_size": "Get screen dimensions in pixels",
+    }
+
     @server.list_tools()
     async def list_tools():
-        return [
-            Tool(
-                name="get_state",
-                description="Get current screen state: all open windows + OCR text of the active (frontmost) window. This is your primary 'look at the screen' tool.",
-                inputSchema={"type": "object", "properties": {}},
-            ),
-            Tool(
-                name="read_window",
-                description="Read text content of a specific window via native OCR. Use this to read what's inside Chrome, Safari, Terminal, or any app. Returns all visible text.",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "app": {
-                            "type": "string",
-                            "description": "App name to find (e.g. 'Chrome', 'Safari', 'Terminal', 'Spotify'). Case-insensitive partial match.",
-                        },
-                        "index": {
-                            "type": "integer",
-                            "description": "Which window if multiple matches (0 = frontmost). Default: 0",
-                        },
-                    },
-                },
-            ),
-            Tool(
-                name="describe",
-                description="Describe screen via VLM vision model. Falls back to OCR if VLM unavailable.",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "region": {
-                            "type": "string",
-                            "description": "Region name from world model, or omit for full screen scan",
-                        },
-                    },
-                },
-            ),
-            Tool(
-                name="get_changes",
-                description="Get recent screen changes since last check",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "since": {
-                            "type": "string",
-                            "description": "ISO timestamp to get changes since",
-                        },
-                    },
-                },
-            ),
-            Tool(
-                name="focus",
-                description="Set attention focus on a screen region — watch it more closely",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "region": {"type": "string"},
-                        "priority": {"type": "string", "enum": ["high", "normal"]},
-                    },
-                    "required": ["region"],
-                },
-            ),
-            Tool(
-                name="ignore",
-                description="Ignore a screen region (e.g. ads, static UI)",
-                inputSchema={
-                    "type": "object",
-                    "properties": {"region": {"type": "string"}},
-                    "required": ["region"],
-                },
-            ),
-            Tool(
-                name="list_windows",
-                description="List all visible windows on screen with their titles and apps",
-                inputSchema={"type": "object", "properties": {}},
-            ),
-        ]
+        return [Tool(name=name, description=TOOL_DESCRIPTIONS[name], inputSchema=TOOL_SCHEMAS[name]) for name in tools.keys()]
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict):
-        if name == "list_windows":
-            windows = capture.list_windows()
-            result = [
-                {"window_id": w.window_id, "app": w.owner, "title": w.title, "width": w.width, "height": w.height}
-                for w in windows
-            ]
-            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
-
         handler = tools.get(name)
         if handler is None:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
-        result = await handler(**arguments)
-        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+        try:
+            result = await handler(**arguments)
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False, default=str))]
+        except Exception as e:
+            return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
 
-    print("vision-pipe: MCP server starting on stdio", file=sys.stderr)
+    print(f"vision-pipe v2: {len(tools)} tools ready (vision + action + system)", file=sys.stderr)
     async with stdio_server() as (read, write):
-        await server.run(read, write, server.create_initialization_options())
+        init_options = server.create_initialization_options()
+        init_options.instructions = MCP_INSTRUCTIONS
+        await server.run(read, write, init_options)
 
 
 @main.command()
