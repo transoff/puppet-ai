@@ -132,6 +132,17 @@ FALLBACK STRATEGY:
 2. If WebFetch fails (403, blocked, empty, login required) → switch to vision-pipe
 3. vision-pipe ALWAYS works — it sees exactly what the user sees in their browser
 
+PRECISE CLICKING:
+- For UI elements (buttons, checkboxes, links): use vision_ui_elements(app) — gives exact clickable areas with roles
+- For text on screen: use action_click_text(text, app) — finds via OCR and clicks center
+- BEST: use action_click_and_wait(text, app) — clicks AND waits for result, no sleep() needed
+- vision_ui_elements returns roles: AXButton, AXCheckBox, AXLink, AXTextField, AXMenuItem
+
+SPEED TIPS:
+- OCR results are cached — calling vision_read_window twice quickly returns from cache
+- Cache is automatically cleared after any action (click, type, scroll)
+- action_click_and_wait is faster than click + sleep(3) + read_window — waits exactly as long as needed
+
 NAVIGATION STRATEGY:
 1. To open a URL: action_open_url(url) — fastest, no keyboard issues
 2. To open an app: action_activate_window(app) or action_hotkey(["cmd","space"]) + paste name

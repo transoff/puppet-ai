@@ -83,6 +83,8 @@ async def _run_mcp_server(cfg):
         "system_get_screen_size": {"type": "object", "properties": {}},
         "system_unmask": {"type": "object", "properties": {"reason": {"type": "string", "description": "Why unmasking is needed"}}, "required": ["reason"]},
         "system_mask": {"type": "object", "properties": {}},
+        "vision_ui_elements": {"type": "object", "properties": {"app": {"type": "string"}, "role_filter": {"type": "string", "description": "Filter: AXButton, AXCheckBox, AXLink, AXTextField"}, "max_depth": {"type": "integer"}}},
+        "action_click_and_wait": {"type": "object", "properties": {"text": {"type": "string", "description": "Text to find and click"}, "app": {"type": "string"}, "timeout": {"type": "number"}}, "required": ["text"]},
     }
 
     TOOL_DESCRIPTIONS = {
@@ -111,6 +113,8 @@ async def _run_mcp_server(cfg):
         "system_get_screen_size": "Get screen dimensions in pixels",
         "system_unmask": "Temporarily disable PII masking (API keys, cards, passwords hidden by default). Requires reason. Ask user for approval first.",
         "system_mask": "Re-enable PII masking after temporary unmask",
+        "vision_ui_elements": "Get UI elements (buttons, checkboxes, links, text fields) via Accessibility API — precise clickable targets",
+        "action_click_and_wait": "Find text, click it, wait for screen to stabilize, return new state — replaces click+sleep+read",
     }
 
     @server.list_tools()

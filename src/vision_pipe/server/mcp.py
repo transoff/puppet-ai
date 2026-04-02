@@ -254,6 +254,94 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         ctx._unmask_approved = False
         return {"status": "masked", "message": "PII masking re-enabled."}
 
+    async def vision_ui_elements(app: str | None = None, role_filter: str | None = None, max_depth: int = 5) -> dict:
+        """Get UI elements (buttons, checkboxes, links) via Accessibility API."""
+        from vision_pipe.core.accessibility import get_ui_elements
+        if not app:
+            windows = ctx.capture.list_windows()
+            if windows:
+                app = windows[0].owner
+            else:
+                return {"error": "No windows found"}
+        elements = get_ui_elements(app, role_filter=role_filter, max_depth=max_depth)
+        return {"app": app, "elements": [e.to_dict() for e in elements], "count": len(elements)}
+
+    async def action_click_and_wait(text: str, app: str | None = None, timeout: float = 5.0) -> dict:
+        """Click text and wait for screen to stabilize. Returns new screen state."""
+        from vision_pipe.core.accessibility import get_ui_elements
+        from vision_pipe.core.ocr import ocr_with_bounds, ocr_full_text, _get_retina_scale
+        from vision_pipe.core.wait import wait_for_stable
+
+        windows = ctx.capture.list_windows()
+        if app:
+            app_lower = app.lower()
+            matches = [w for w in windows if app_lower in w.owner.lower() or app_lower in w.title.lower()]
+        else:
+            matches = windows
+        if not matches:
+            return {"error": f"No window found for '{app}'"}
+
+        win = matches[0]
+        text_lower = text.lower()
+        click_x, click_y, source = None, None, ""
+
+        # Try accessibility API first
+        try:
+            ax_elements = get_ui_elements(win.owner)
+            ax_match = [e for e in ax_elements if text_lower in e.title.lower() or text_lower in e.value.lower()]
+            if ax_match:
+                click_x, click_y = ax_match[0].center()
+                source = "accessibility"
+        except Exception:
+            pass
+
+        # Fallback to OCR
+        if click_x is None:
+            try:
+                img = await ctx.capture.capture_window_bytes(win.window_id)
+                scale = _get_retina_scale()
+                elements = ocr_with_bounds(img, window_x=int(win.x / scale), window_y=int(win.y / scale), mode="fast")
+                ocr_match = [e for e in elements if text_lower in e.text.lower()]
+                if ocr_match:
+                    click_x, click_y = ocr_match[0].center()
+                    source = "ocr"
+            except Exception:
+                pass
+
+        if click_x is None:
+            return {"error": f"Text '{text}' not found via accessibility or OCR"}
+
+        # Click
+        ctx.actions.click(click_x, click_y)
+
+        # Wait for stable
+        import asyncio
+        await asyncio.sleep(0.3)
+
+        async def capture_frame():
+            return await ctx.capture.capture_window(win.window_id)
+
+        waited, stable = await wait_for_stable(capture_frame, timeout=timeout)
+
+        # OCR the new state
+        try:
+            new_img = await ctx.capture.capture_window_bytes(win.window_id)
+            new_text = ocr_full_text(new_img)
+        except Exception:
+            new_text = ""
+
+        return {
+            "status": "ok",
+            "action": "click_and_wait",
+            "clicked": text,
+            "x": click_x,
+            "y": click_y,
+            "source": source,
+            "waited": round(waited, 2),
+            "screen_stabilized": stable,
+            "new_text_preview": new_text[:1000],
+        }
+
     return {
         "vision_list_windows": vision_list_windows,
         "vision_get_state": vision_get_state,
@@ -280,4 +368,6 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "system_get_screen_size": system_get_screen_size,
         "system_unmask": system_unmask,
         "system_mask": system_mask,
+        "vision_ui_elements": vision_ui_elements,
+        "action_click_and_wait": action_click_and_wait,
     }
