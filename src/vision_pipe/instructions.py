@@ -106,13 +106,32 @@ TEXT EDITING (any text field):
 - Cmd+Shift+Left/Right — select to beginning / end of line
 - Cmd+Up/Down — beginning / end of document
 
+CHOOSING THE RIGHT APPROACH — CRITICAL:
+Before using vision-pipe for a task, ask: what's the fastest way?
+
+USE vision-pipe (eyes + hands) for:
+- Desktop apps with no API (Telegram, Discord, Finder, Spotify, any native app)
+- Checking what's on screen / reading app state
+- Clicking buttons, filling forms, interacting with UI
+- Anything that REQUIRES seeing the screen or controlling mouse/keyboard
+
+DO NOT use vision-pipe for:
+- Reading web page content — use WebFetch/curl instead (10x faster)
+- Collecting data from websites — use their API if available
+- Scraping/scrolling through long web pages — fetch the URL directly
+
+COMBINED APPROACH (best):
+1. Use WebFetch/API for data gathering (fast)
+2. Use vision-pipe for desktop interaction (reliable)
+3. Use action_open_url to navigate, vision_read_window to verify page loaded
+
 NAVIGATION STRATEGY:
-1. To open an app: action_hotkey(["cmd","space"]), clipboard paste app name, action_press("enter")
-2. To open a URL: action_activate_window("Safari"), action_hotkey(["cmd","l"]), clipboard paste URL, action_press("enter")
-3. To find text on page: action_hotkey(["cmd","f"]), clipboard paste search text
-4. To switch between apps: action_hotkey(["cmd","tab"]) or action_activate_window("AppName")
-5. To scroll through content: action_scroll(-5) for down, action_scroll(5) for up
-6. To interact with a UI element: vision_read_window to find it, then action_click at its coordinates
+1. To open a URL: action_open_url(url) — fastest, no keyboard issues
+2. To open an app: action_activate_window(app) or action_hotkey(["cmd","space"]) + paste name
+3. To click a button/link: action_click_text(text, app) — finds and clicks automatically
+4. To type in a field: click the field first, then action_type_safe(text)
+5. To scroll: action_scroll(-5) for down, action_scroll(5) for up
+6. To verify action worked: vision_read_window(app) after every action
 
 COORDINATES:
 - Coordinates from vision_read_window are already in logical screen pixels — use them directly with action_click
