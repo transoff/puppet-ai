@@ -24,7 +24,7 @@ class UIElement:
         return d
 
 
-def get_ui_elements(app_name: str, role_filter: str | None = None, max_depth: int = 5, max_elements: int = 200) -> list[UIElement]:
+def get_ui_elements(app_name: str, role_filter: str | None = None, max_depth: int = 15, max_elements: int = 300) -> list[UIElement]:
     try:
         import AppKit
         import ApplicationServices as AS
@@ -73,8 +73,30 @@ def _walk_element(element, results, role_filter, max_depth, max_elements, depth)
     err, title = AS.AXUIElementCopyAttributeValue(element, "AXTitle", None)
     title = str(title) if err == 0 and title else ""
 
+    # Try AXDescription as fallback (Chrome uses this for link text)
+    if not title:
+        err, desc = AS.AXUIElementCopyAttributeValue(element, "AXDescription", None)
+        title = str(desc) if err == 0 and desc else ""
+
+    # Try AXHelp as another fallback
+    if not title:
+        err, help_text = AS.AXUIElementCopyAttributeValue(element, "AXHelp", None)
+        title = str(help_text) if err == 0 and help_text else ""
+
     err, value = AS.AXUIElementCopyAttributeValue(element, "AXValue", None)
     value = str(value) if err == 0 and value else ""
+
+    # For links/text without title, try to get text from first child AXStaticText
+    if not title and not value and role in ("AXLink", "AXButton"):
+        err, children = AS.AXUIElementCopyAttributeValue(element, "AXChildren", None)
+        if err == 0 and children:
+            for child in children:
+                cerr, child_role = AS.AXUIElementCopyAttributeValue(child, "AXRole", None)
+                if cerr == 0 and str(child_role) == "AXStaticText":
+                    cerr, child_val = AS.AXUIElementCopyAttributeValue(child, "AXValue", None)
+                    if cerr == 0 and child_val:
+                        title = str(child_val)
+                        break
 
     err, pos_ref = AS.AXUIElementCopyAttributeValue(element, "AXPosition", None)
     err2, size_ref = AS.AXUIElementCopyAttributeValue(element, "AXSize", None)
