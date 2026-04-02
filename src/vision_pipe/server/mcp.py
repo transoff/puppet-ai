@@ -67,7 +67,7 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             element_dicts = [e.to_dict() for e in elements[:100]]
         return {"app": win.owner, "title": win.title, "size": f"{win.width}x{win.height}", "text": full_text[:5000], "elements": element_dicts}
 
-    async def vision_screenshot(app: str | None = None) -> dict:
+    async def vision_screenshot(app: str | None = None, max_width: int = 800) -> dict:
         if app:
             windows = ctx.capture.list_windows()
             app_lower = app.lower()
@@ -77,8 +77,16 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             img_bytes = await ctx.capture.capture_window_bytes(matches[0].window_id)
         else:
             img_bytes = await ctx.capture.capture_bytes()
-        encoded = base64.b64encode(img_bytes).decode()
+
+        # Resize to reduce token usage (Retina screenshots are huge)
         pil = Image.open(io.BytesIO(img_bytes))
+        if pil.width > max_width:
+            ratio = max_width / pil.width
+            pil = pil.resize((max_width, int(pil.height * ratio)), Image.Resampling.LANCZOS)
+
+        buf = io.BytesIO()
+        pil.save(buf, format="JPEG", quality=75)
+        encoded = base64.b64encode(buf.getvalue()).decode()
         return {"image_base64": encoded, "width": pil.width, "height": pil.height}
 
     async def vision_get_changes() -> dict:
@@ -119,6 +127,20 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
 
     async def action_clipboard_paste() -> dict:
         return ctx.actions.clipboard_paste()
+
+    async def action_open_url(url: str, browser: str = "Google Chrome") -> dict:
+        """Open a URL in a browser — handles clipboard paste to avoid keyboard layout issues."""
+        import subprocess as sp
+        sp.run(["open", "-a", browser, url], capture_output=True, timeout=5)
+        import asyncio
+        await asyncio.sleep(2)
+        return {"status": "ok", "action": "open_url", "url": url, "browser": browser}
+
+    async def action_type_safe(text: str) -> dict:
+        """Type text safely via clipboard paste — avoids keyboard layout issues."""
+        ctx.actions.clipboard_copy(text)
+        ctx.actions.hotkey(["cmd", "v"])
+        return {"status": "ok", "action": "type_safe", "length": len(text)}
 
     async def system_check_permissions() -> dict:
         from vision_pipe.core.permissions import check_accessibility
@@ -164,6 +186,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "action_activate_window": action_activate_window,
         "action_clipboard_copy": action_clipboard_copy,
         "action_clipboard_paste": action_clipboard_paste,
+        "action_open_url": action_open_url,
+        "action_type_safe": action_type_safe,
         "system_check_permissions": system_check_permissions,
         "system_get_mouse_position": system_get_mouse_position,
         "system_get_screen_size": system_get_screen_size,
