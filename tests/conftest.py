@@ -7,7 +7,6 @@ from PIL import Image
 
 from vision_pipe.types import (
     Bounds,
-    ChangedArea,
     FocusResult,
     RegionInfo,
     ScanResult,

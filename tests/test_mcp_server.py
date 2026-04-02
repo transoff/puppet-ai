@@ -1,7 +1,7 @@
 import pytest
 from vision_pipe.server.mcp import create_vision_tools, VisionMCPContext
 from vision_pipe.core.world_model import WorldModel
-from vision_pipe.types import Bounds, FocusPriority, FocusResult, RegionInfo, ScanResult
+from vision_pipe.types import Bounds, FocusResult, RegionInfo, ScanResult
 
 
 class MockPeripheral:

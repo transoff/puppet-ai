@@ -1,10 +1,8 @@
 # tests/test_detector.py
 import numpy as np
 import pytest
-from PIL import Image
 
 from vision_pipe.core.detector import ChangeDetector
-from vision_pipe.types import Bounds
 
 
 @pytest.fixture

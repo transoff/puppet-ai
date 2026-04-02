@@ -1,6 +1,5 @@
 # src/vision_pipe/cli.py
 from __future__ import annotations
-import asyncio
 from pathlib import Path
 import click
 
@@ -27,7 +26,7 @@ def serve(config: str | None, preset: str | None):
     else:
         cfg = VisionPipeConfig()
 
-    click.echo(f"Starting vision-pipe MCP server...")
+    click.echo("Starting vision-pipe MCP server...")
     click.echo(f"  Peripheral: {cfg.peripheral.provider}")
     click.echo(f"  Foveal: {cfg.foveal.provider}")
     click.echo(f"  Capture FPS: {cfg.capture.fps}")

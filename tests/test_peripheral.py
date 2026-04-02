@@ -1,10 +1,7 @@
 # tests/test_peripheral.py
 import pytest
-from PIL import Image
-import io
 from vision_pipe.core.peripheral import PeripheralVision
-from vision_pipe.providers.base import VisionProvider
-from vision_pipe.types import Bounds, FocusResult, RegionInfo, ScanResult
+from vision_pipe.types import FocusResult, RegionInfo, ScanResult
 
 
 class MockProvider:

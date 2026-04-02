@@ -1,6 +1,5 @@
 import pytest
-from pathlib import Path
-from vision_pipe.config.schema import VisionPipeConfig, CaptureConfig, PhaseConfig
+from vision_pipe.config.schema import VisionPipeConfig, PhaseConfig
 from vision_pipe.config.presets import get_preset, list_presets
 
 

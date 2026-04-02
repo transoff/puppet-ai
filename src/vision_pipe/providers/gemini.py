@@ -1,5 +1,6 @@
 from __future__ import annotations
-import base64, json, os
+import json
+import os
 from vision_pipe.types import Bounds, FocusResult, RegionInfo, ScanResult
 
 SCAN_PROMPT = """Analyze this screenshot. Return JSON with:

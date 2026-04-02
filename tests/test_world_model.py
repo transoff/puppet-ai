@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 import pytest
 from vision_pipe.core.world_model import WorldModel
-from vision_pipe.types import (Bounds, ChangeEvent, FocusPriority, FocusResult, RegionInfo, ScanResult, WorldState)
+from vision_pipe.types import (FocusPriority, FocusResult)
 
 
 @pytest.fixture
