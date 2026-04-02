@@ -59,13 +59,60 @@ TYPING TEXT — IMPORTANT:
 - action_type_text is ONLY safe for simple ASCII when you're sure the layout is English
 - For pressing Enter after pasting: action_press("enter")
 
-NAVIGATING BROWSERS:
-- To open a URL in Safari: action_hotkey(["cmd","l"]) to focus address bar, then clipboard paste
-- To open a URL in Chrome: action_hotkey(["cmd","l"]) to focus address bar, then clipboard paste
-- To go back: action_hotkey(["cmd","["])
-- To open new tab: action_hotkey(["cmd","t"])
-- To close tab: action_hotkey(["cmd","w"])
-- To switch tabs: action_hotkey(["cmd","shift","]"]) for next, action_hotkey(["cmd","shift","["]) for previous
+macOS UNIVERSAL SHORTCUTS (work in almost all apps):
+- Cmd+C / Cmd+V / Cmd+X — copy / paste / cut
+- Cmd+A — select all
+- Cmd+Z — undo, Cmd+Shift+Z — redo
+- Cmd+W — close current tab/window
+- Cmd+Q — quit application
+- Cmd+Tab — switch between apps
+- Cmd+` — switch windows within same app
+- Cmd+Space — Spotlight search (launch any app or search)
+- Cmd+, — open app preferences/settings
+- Cmd+F — find/search in current app
+- Cmd+N — new window/document
+- Cmd+S — save
+- Escape — cancel/close dialog/menu
+
+BROWSER NAVIGATION (Safari, Chrome, Arc, Firefox):
+- Cmd+L — focus address bar (then clipboard paste URL + Enter)
+- Cmd+T — new tab
+- Cmd+W — close tab
+- Cmd+Shift+] — next tab
+- Cmd+Shift+[ — previous tab
+- Cmd+R — refresh page
+- Cmd+[ — go back
+- Cmd+] — go forward
+- Space — scroll down one page
+- Shift+Space — scroll up one page
+
+FINDER:
+- Cmd+Shift+G — go to folder (paste path)
+- Cmd+Delete — move to trash
+- Space — quick look / preview file
+- Enter — rename selected file
+- Cmd+O — open selected
+
+TERMINAL:
+- Cmd+T — new tab
+- Cmd+K — clear screen
+- Ctrl+C — interrupt running command
+- Ctrl+A / Ctrl+E — beginning / end of line
+- Up/Down arrows — command history
+
+TEXT EDITING (any text field):
+- Cmd+Left/Right — beginning / end of line
+- Alt+Left/Right — jump by word
+- Cmd+Shift+Left/Right — select to beginning / end of line
+- Cmd+Up/Down — beginning / end of document
+
+NAVIGATION STRATEGY:
+1. To open an app: action_hotkey(["cmd","space"]), clipboard paste app name, action_press("enter")
+2. To open a URL: action_activate_window("Safari"), action_hotkey(["cmd","l"]), clipboard paste URL, action_press("enter")
+3. To find text on page: action_hotkey(["cmd","f"]), clipboard paste search text
+4. To switch between apps: action_hotkey(["cmd","tab"]) or action_activate_window("AppName")
+5. To scroll through content: action_scroll(-5) for down, action_scroll(5) for up
+6. To interact with a UI element: vision_read_window to find it, then action_click at its coordinates
 
 COORDINATES:
 - Coordinates from vision_read_window are already in logical screen pixels — use them directly with action_click
