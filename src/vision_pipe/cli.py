@@ -16,8 +16,12 @@ def main():
 @click.option("--preset", type=click.Choice(["fast", "balanced", "quality"]), help="Use a built-in preset")
 def serve(config: str | None, preset: str | None):
     """Start the MCP server."""
-    from vision_pipe.config.schema import VisionPipeConfig
+    import asyncio
+    import json
+    import sys
+
     from vision_pipe.config.presets import get_preset
+    from vision_pipe.config.schema import VisionPipeConfig
 
     if preset:
         cfg = get_preset(preset)
@@ -26,11 +30,132 @@ def serve(config: str | None, preset: str | None):
     else:
         cfg = VisionPipeConfig()
 
-    click.echo("Starting vision-pipe MCP server...")
-    click.echo(f"  Peripheral: {cfg.peripheral.provider}")
-    click.echo(f"  Foveal: {cfg.foveal.provider}")
-    click.echo(f"  Capture FPS: {cfg.capture.fps}")
-    # MCP server startup will be wired in integration
+    # All output to stderr — stdout is reserved for MCP protocol
+    print(f"vision-pipe: peripheral={cfg.peripheral.provider}, foveal={cfg.foveal.provider}", file=sys.stderr)
+
+    asyncio.run(_run_mcp_server(cfg))
+
+
+async def _run_mcp_server(cfg):
+    """Run the MCP server on stdio."""
+    import json
+    import sys
+
+    from mcp.server import Server
+    from mcp.server.stdio import stdio_server
+    from mcp.types import TextContent, Tool
+
+    from vision_pipe.core.capture import ScreenCapture
+    from vision_pipe.core.foveal import FovealFocus
+    from vision_pipe.core.peripheral import PeripheralVision
+    from vision_pipe.core.world_model import WorldModel
+    from vision_pipe.providers.ollama import OllamaProvider
+    from vision_pipe.server.mcp import VisionMCPContext, create_vision_tools
+
+    # Build components
+    peripheral_model = cfg.peripheral.provider.split("/")[-1] if "/" in cfg.peripheral.provider else cfg.peripheral.provider
+    peripheral_provider = OllamaProvider(model=peripheral_model)
+    foveal_provider = OllamaProvider(model=peripheral_model)  # same for now
+
+    peripheral = PeripheralVision(
+        provider=peripheral_provider,
+        resolution=cfg.peripheral.resolution_tuple(),
+    )
+    foveal = FovealFocus(provider=foveal_provider)
+    capture = ScreenCapture()
+    world_model = WorldModel()
+
+    ctx = VisionMCPContext(
+        world_model=world_model,
+        peripheral=peripheral,
+        foveal=foveal,
+        capture=capture,
+    )
+    tools = create_vision_tools(ctx)
+
+    server = Server("vision-pipe")
+
+    @server.list_tools()
+    async def list_tools():
+        return [
+            Tool(
+                name="get_state",
+                description="Get current screen state — what's visible right now",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+            Tool(
+                name="describe",
+                description="Describe a screen region in detail. Triggers foveal focus on the region.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "region": {
+                            "type": "string",
+                            "description": "Region name from world model, or omit for full screen scan",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="get_changes",
+                description="Get recent screen changes since last check",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "since": {
+                            "type": "string",
+                            "description": "ISO timestamp to get changes since",
+                        },
+                    },
+                },
+            ),
+            Tool(
+                name="focus",
+                description="Set attention focus on a screen region — watch it more closely",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "region": {"type": "string"},
+                        "priority": {"type": "string", "enum": ["high", "normal"]},
+                    },
+                    "required": ["region"],
+                },
+            ),
+            Tool(
+                name="ignore",
+                description="Ignore a screen region (e.g. ads, static UI)",
+                inputSchema={
+                    "type": "object",
+                    "properties": {"region": {"type": "string"}},
+                    "required": ["region"],
+                },
+            ),
+            Tool(
+                name="list_windows",
+                description="List all visible windows on screen with their titles and apps",
+                inputSchema={"type": "object", "properties": {}},
+            ),
+        ]
+
+    @server.call_tool()
+    async def call_tool(name: str, arguments: dict):
+        if name == "list_windows":
+            windows = capture.list_windows()
+            result = [
+                {"window_id": w.window_id, "app": w.owner, "title": w.title, "width": w.width, "height": w.height}
+                for w in windows
+            ]
+            return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+        handler = tools.get(name)
+        if handler is None:
+            return [TextContent(type="text", text=f"Unknown tool: {name}")]
+        result = await handler(**arguments)
+        return [TextContent(type="text", text=json.dumps(result, ensure_ascii=False))]
+
+    print("vision-pipe: MCP server starting on stdio", file=sys.stderr)
+    async with stdio_server() as (read, write):
+        await server.run(read, write, server.create_initialization_options())
 
 
 @main.command()
