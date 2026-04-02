@@ -80,12 +80,29 @@ async def _run_mcp_server(cfg):
         return [
             Tool(
                 name="get_state",
-                description="Get current screen state — what's visible right now",
+                description="Get current screen state: all open windows + OCR text of the active (frontmost) window. This is your primary 'look at the screen' tool.",
                 inputSchema={"type": "object", "properties": {}},
             ),
             Tool(
+                name="read_window",
+                description="Read text content of a specific window via native OCR. Use this to read what's inside Chrome, Safari, Terminal, or any app. Returns all visible text.",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "app": {
+                            "type": "string",
+                            "description": "App name to find (e.g. 'Chrome', 'Safari', 'Terminal', 'Spotify'). Case-insensitive partial match.",
+                        },
+                        "index": {
+                            "type": "integer",
+                            "description": "Which window if multiple matches (0 = frontmost). Default: 0",
+                        },
+                    },
+                },
+            ),
+            Tool(
                 name="describe",
-                description="Describe a screen region in detail. Triggers foveal focus on the region.",
+                description="Describe screen via VLM vision model. Falls back to OCR if VLM unavailable.",
                 inputSchema={
                     "type": "object",
                     "properties": {
