@@ -142,6 +142,50 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         ctx.actions.hotkey(["cmd", "v"])
         return {"status": "ok", "action": "type_safe", "length": len(text)}
 
+    async def action_click_text(text: str, app: str | None = None, index: int = 0) -> dict:
+        """Find text on screen via OCR and click its center. No need to calculate coordinates manually.
+
+        Args:
+            text: Text to find and click (partial match, case-insensitive)
+            app: App to search in (optional, searches active window if omitted)
+            index: Which match to click if multiple (0 = first)
+        """
+        from vision_pipe.core.ocr import ocr_with_bounds
+
+        windows = ctx.capture.list_windows()
+        if app:
+            app_lower = app.lower()
+            matches = [w for w in windows if app_lower in w.owner.lower() or app_lower in w.title.lower()]
+        else:
+            matches = windows
+        if not matches:
+            return {"error": f"No window found for '{app}'"}
+
+        win = matches[0]
+        img = await ctx.capture.capture_window_bytes(win.window_id)
+        elements = ocr_with_bounds(img)
+
+        text_lower = text.lower()
+        found = [e for e in elements if text_lower in e.text.lower()]
+        if not found:
+            available = [e.text for e in elements[:20]]
+            return {"error": f"Text '{text}' not found on screen", "visible_texts": available}
+
+        if index >= len(found):
+            index = 0
+
+        target = found[index]
+        cx, cy = target.center()
+        ctx.actions.click(cx, cy)
+        return {
+            "status": "ok",
+            "action": "click_text",
+            "clicked": target.text,
+            "x": cx,
+            "y": cy,
+            "matches_found": len(found),
+        }
+
     async def system_check_permissions() -> dict:
         from vision_pipe.core.permissions import check_accessibility
         return check_accessibility()
@@ -188,6 +232,7 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "action_clipboard_paste": action_clipboard_paste,
         "action_open_url": action_open_url,
         "action_type_safe": action_type_safe,
+        "action_click_text": action_click_text,
         "system_check_permissions": system_check_permissions,
         "system_get_mouse_position": system_get_mouse_position,
         "system_get_screen_size": system_get_screen_size,

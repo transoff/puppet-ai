@@ -23,26 +23,27 @@ class OcrElement:
         return {"text": self.text, "x": self.x, "y": self.y, "w": self.w, "h": self.h}
 
 
-def _get_retina_scale() -> float:
-    """Get Retina display scale factor (2.0 on Retina, 1.0 on standard)."""
-    try:
-        import pyautogui
-        from PIL import Image
-        import subprocess
-        import tempfile
-        from pathlib import Path
+_retina_scale_cache: float | None = None
 
-        # Compare screencapture resolution vs pyautogui logical size
-        logical_w, _ = pyautogui.size()
-        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
-            tmp = f.name
-        subprocess.run(["screencapture", "-x", tmp], capture_output=True, timeout=5)
-        img = Image.open(tmp)
-        capture_w = img.width
-        Path(tmp).unlink(missing_ok=True)
-        return capture_w / logical_w
+
+def _get_retina_scale() -> float:
+    """Get Retina display scale factor. Cached after first call."""
+    global _retina_scale_cache
+    if _retina_scale_cache is not None:
+        return _retina_scale_cache
+
+    try:
+        import Quartz
+        main_display = Quartz.CGMainDisplayID()
+        pixel_w = Quartz.CGDisplayPixelsWide(main_display)
+        # Get logical width from display mode
+        mode = Quartz.CGDisplayCopyDisplayMode(main_display)
+        logical_w = Quartz.CGDisplayModeGetWidth(mode)
+        _retina_scale_cache = pixel_w / logical_w if logical_w else 2.0
     except Exception:
-        return 2.0  # safe default for Retina Macs
+        _retina_scale_cache = 2.0
+
+    return _retina_scale_cache
 
 
 def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, image_width: int | None = None, image_height: int | None = None) -> list[OcrElement]:
