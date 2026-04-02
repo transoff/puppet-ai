@@ -27,19 +27,31 @@ _retina_scale_cache: float | None = None
 
 
 def _get_retina_scale() -> float:
-    """Get Retina display scale factor. Cached after first call."""
+    """Get Retina display scale factor. Cached after first call.
+
+    Compares screencapture resolution vs pyautogui logical size.
+    CGDisplayPixelsWide returns logical on modern macOS, so we can't use it.
+    """
     global _retina_scale_cache
     if _retina_scale_cache is not None:
         return _retina_scale_cache
 
     try:
-        import Quartz
-        main_display = Quartz.CGMainDisplayID()
-        pixel_w = Quartz.CGDisplayPixelsWide(main_display)
-        # Get logical width from display mode
-        mode = Quartz.CGDisplayCopyDisplayMode(main_display)
-        logical_w = Quartz.CGDisplayModeGetWidth(mode)
-        _retina_scale_cache = pixel_w / logical_w if logical_w else 2.0
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
+        import pyautogui
+        from PIL import Image
+
+        logical_w, _ = pyautogui.size()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            tmp = f.name
+        subprocess.run(["screencapture", "-x", tmp], capture_output=True, timeout=5)
+        img = Image.open(tmp)
+        capture_w = img.width
+        Path(tmp).unlink(missing_ok=True)
+        _retina_scale_cache = capture_w / logical_w if logical_w else 2.0
     except Exception:
         _retina_scale_cache = 2.0
 

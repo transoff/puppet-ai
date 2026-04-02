@@ -60,8 +60,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             scale = _get_retina_scale()
             elements = ocr_with_bounds(
                 img,
-                window_x=int(win.x / scale),
-                window_y=int(win.y / scale),
+                window_x=int(win.x),
+                window_y=int(win.y),
             )
             full_text = "\n".join(e.text for e in elements)
         except Exception as e:
@@ -130,8 +130,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
                 from vision_pipe.core.ocr import _get_retina_scale
                 scale = _get_retina_scale()
                 win = matches[0]
-                center_x = int(win.x / scale) + win.width // (2 * int(scale))
-                center_y = int(win.y / scale) + win.height // (2 * int(scale))
+                center_x = win.x + win.width // 2
+                center_y = win.y + win.height // 2
                 ctx.actions.click(center_x, center_y)
                 await asyncio.sleep(0.1)
         return ctx.actions.scroll(amount, x=x, y=y)
@@ -179,14 +179,14 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         return {"status": "ok", "action": "type_safe", "length": len(text)}
 
     async def action_click_text(text: str, app: str | None = None, index: int = 0) -> dict:
-        """Find text on screen via OCR and click its center. No need to calculate coordinates manually.
-
-        Args:
-            text: Text to find and click (partial match, case-insensitive)
-            app: App to search in (optional, searches active window if omitted)
-            index: Which match to click if multiple (0 = first)
-        """
+        """Find text on screen via OCR and click its center. No need to calculate coordinates manually."""
+        import asyncio
         from vision_pipe.core.ocr import ocr_with_bounds
+
+        # Activate window first
+        if app:
+            ctx.actions.activate_window(app)
+            await asyncio.sleep(0.3)
 
         windows = ctx.capture.list_windows()
         if app:
@@ -203,8 +203,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         scale = _get_retina_scale()
         elements = ocr_with_bounds(
             img,
-            window_x=int(win.x / scale),
-            window_y=int(win.y / scale),
+            window_x=int(win.x),
+            window_y=int(win.y),
         )
 
         text_lower = text.lower()
@@ -268,9 +268,15 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
 
     async def action_click_and_wait(text: str, app: str | None = None, timeout: float = 5.0) -> dict:
         """Click text and wait for screen to stabilize. Returns new screen state."""
+        import asyncio
         from vision_pipe.core.accessibility import get_ui_elements
         from vision_pipe.core.ocr import ocr_with_bounds, ocr_full_text, _get_retina_scale
         from vision_pipe.core.wait import wait_for_stable
+
+        # Activate window first to ensure it's visible and capturable
+        if app:
+            ctx.actions.activate_window(app)
+            await asyncio.sleep(0.3)
 
         windows = ctx.capture.list_windows()
         if app:
@@ -300,7 +306,7 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             try:
                 img = await ctx.capture.capture_window_bytes(win.window_id)
                 scale = _get_retina_scale()
-                elements = ocr_with_bounds(img, window_x=int(win.x / scale), window_y=int(win.y / scale), mode="fast")
+                elements = ocr_with_bounds(img, window_x=win.x, window_y=win.y)
                 ocr_match = [e for e in elements if text_lower in e.text.lower()]
                 if ocr_match:
                     click_x, click_y = ocr_match[0].center()
