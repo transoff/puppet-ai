@@ -1,64 +1,108 @@
 # src/vision_pipe/providers/ollama.py
 from __future__ import annotations
+
+import asyncio
 import base64
 import json
-import httpx
+import subprocess
+import sys
+
 from vision_pipe.types import Bounds, FocusResult, RegionInfo, ScanResult
 
-SCAN_PROMPT = """Analyze this screenshot. Return JSON with:
-- "summary": one-line description of what's on screen
-- "regions": array of {"name": str, "bounds": {"x": int, "y": int, "w": int, "h": int}, "description": str}
-Identify distinct visual regions. Return ONLY valid JSON."""
+SCAN_PROMPT = """<image>
+Describe what you see on this computer screen. List the main areas/regions visible (header, content, sidebar, etc), what application is open, and any key text or data visible. Be specific and concise."""
 
-FOCUS_PROMPT_TEMPLATE = """Analyze this cropped screen region in detail.
+FOCUS_PROMPT_TEMPLATE = """<image>
+Analyze this cropped screen region in detail.
 Context: {context}
 Region: {region_name}
-Return JSON with:
-- "description": detailed description
-- "extracted_data": key-value pairs of structured data
-Return ONLY valid JSON."""
+Describe all text, data, and visual elements you can see. Be specific."""
 
 
 class OllamaProvider:
-    def __init__(self, model: str = "moondream2", base_url: str = "http://localhost:11434") -> None:
+    """Vision provider using Ollama local models.
+
+    Uses subprocess+curl instead of httpx to avoid proxy issues (e.g. Throne VPN).
+    Moondream requires <image> prefix in prompts for vision to work via API.
+    """
+
+    def __init__(
+        self,
+        model: str = "moondream",
+        base_url: str = "http://localhost:11434",
+    ) -> None:
         self.model = model
         self.base_url = base_url
-        self._client = httpx.AsyncClient(timeout=30.0)
+
+    async def _call(self, prompt: str, image_b64: str) -> str:
+        """Call Ollama API via curl (bypasses proxy issues with httpx)."""
+        payload = json.dumps({
+            "model": self.model,
+            "prompt": prompt,
+            "images": [image_b64],
+            "stream": False,
+        })
+
+        proc = await asyncio.create_subprocess_exec(
+            "curl", "-s", "-X", "POST",
+            f"{self.base_url}/api/generate",
+            "-H", "Content-Type: application/json",
+            "-d", payload,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30)
+
+        if proc.returncode != 0:
+            raise RuntimeError(f"Ollama call failed: {stderr.decode()}")
+
+        data = json.loads(stdout.decode())
+        response_text = data.get("response", "")
+
+        if not response_text.strip():
+            raise RuntimeError(f"Ollama returned empty response for model {self.model}")
+
+        return response_text
 
     async def scan(self, image: bytes) -> ScanResult:
         image_b64 = base64.b64encode(image).decode()
-        response = await self._client.post(
-            f"{self.base_url}/api/generate",
-            json={"model": self.model, "prompt": SCAN_PROMPT, "images": [image_b64], "stream": False},
-        )
-        response.raise_for_status()
-        text = response.json()["response"]
-        data = json.loads(text)
-        regions = [
-            RegionInfo(
-                name=r["name"],
-                bounds=Bounds(**r["bounds"]),
-                description=r.get("description", ""),
-            )
-            for r in data.get("regions", [])
-        ]
-        return ScanResult(summary=data["summary"], regions=regions)
+        text = await self._call(SCAN_PROMPT, image_b64)
 
-    async def focus(self, image: bytes, region: RegionInfo, context: str) -> FocusResult:
+        # Try to parse as JSON first, fall back to plain text
+        try:
+            data = json.loads(text)
+            regions = [
+                RegionInfo(
+                    name=r["name"],
+                    bounds=Bounds(**r["bounds"]),
+                    description=r.get("description", ""),
+                )
+                for r in data.get("regions", [])
+            ]
+            return ScanResult(summary=data.get("summary", text), regions=regions)
+        except (json.JSONDecodeError, KeyError):
+            # Moondream often returns plain text, not JSON
+            return ScanResult(summary=text.strip(), regions=[])
+
+    async def focus(
+        self, image: bytes, region: RegionInfo, context: str
+    ) -> FocusResult:
         image_b64 = base64.b64encode(image).decode()
         prompt = FOCUS_PROMPT_TEMPLATE.format(context=context, region_name=region.name)
-        response = await self._client.post(
-            f"{self.base_url}/api/generate",
-            json={"model": self.model, "prompt": prompt, "images": [image_b64], "stream": False},
-        )
-        response.raise_for_status()
-        text = response.json()["response"]
-        data = json.loads(text)
-        return FocusResult(
-            region_name=region.name,
-            description=data["description"],
-            extracted_data=data.get("extracted_data", {}),
-        )
+        text = await self._call(prompt, image_b64)
+
+        try:
+            data = json.loads(text)
+            return FocusResult(
+                region_name=region.name,
+                description=data.get("description", text),
+                extracted_data=data.get("extracted_data", {}),
+            )
+        except (json.JSONDecodeError, KeyError):
+            return FocusResult(
+                region_name=region.name,
+                description=text.strip(),
+            )
 
     async def close(self) -> None:
-        await self._client.aclose()
+        pass
