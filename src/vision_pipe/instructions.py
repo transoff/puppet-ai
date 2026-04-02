@@ -53,6 +53,25 @@ SECURITY:
 - After you're done, call system_mask() to re-enable protection
 - NEVER store, log, or transmit sensitive data to external services
 
+TYPING TEXT — IMPORTANT:
+- NEVER use action_type_text for URLs, code, or any non-trivial text — keyboard layout may be wrong (e.g. Russian instead of English)
+- ALWAYS use clipboard instead: action_clipboard_copy(text) then action_hotkey(["cmd","v"])
+- action_type_text is ONLY safe for simple ASCII when you're sure the layout is English
+- For pressing Enter after pasting: action_press("enter")
+
+NAVIGATING BROWSERS:
+- To open a URL in Safari: action_hotkey(["cmd","l"]) to focus address bar, then clipboard paste
+- To open a URL in Chrome: action_hotkey(["cmd","l"]) to focus address bar, then clipboard paste
+- To go back: action_hotkey(["cmd","["])
+- To open new tab: action_hotkey(["cmd","t"])
+- To close tab: action_hotkey(["cmd","w"])
+- To switch tabs: action_hotkey(["cmd","shift","]"]) for next, action_hotkey(["cmd","shift","["]) for previous
+
+COORDINATES:
+- Coordinates from vision_read_window are already in logical screen pixels — use them directly with action_click
+- No need to multiply or divide — Retina scaling is handled automatically
+- To click a text element: use center of bounding box (x + w/2, y + h/2)
+
 IMPORTANT:
 - Always LOOK before acting — you need coordinates
 - Always LOOK after acting — verify it worked

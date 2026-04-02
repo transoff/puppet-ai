@@ -23,7 +23,34 @@ class OcrElement:
         return {"text": self.text, "x": self.x, "y": self.y, "w": self.w, "h": self.h}
 
 
+def _get_retina_scale() -> float:
+    """Get Retina display scale factor (2.0 on Retina, 1.0 on standard)."""
+    try:
+        import pyautogui
+        from PIL import Image
+        import subprocess
+        import tempfile
+        from pathlib import Path
+
+        # Compare screencapture resolution vs pyautogui logical size
+        logical_w, _ = pyautogui.size()
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as f:
+            tmp = f.name
+        subprocess.run(["screencapture", "-x", tmp], capture_output=True, timeout=5)
+        img = Image.open(tmp)
+        capture_w = img.width
+        Path(tmp).unlink(missing_ok=True)
+        return capture_w / logical_w
+    except Exception:
+        return 2.0  # safe default for Retina Macs
+
+
 def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, image_width: int | None = None, image_height: int | None = None) -> list[OcrElement]:
+    """Run OCR and return elements with bounding boxes in LOGICAL screen coordinates.
+
+    Coordinates are automatically scaled for Retina displays so they work
+    directly with pyautogui click(x, y) — no manual division needed.
+    """
     import Vision
     from Foundation import NSData
 
@@ -35,6 +62,9 @@ def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, imag
         import io
         img = Image.open(io.BytesIO(image_bytes))
         image_width, image_height = img.size
+
+    # Get scale factor to convert from capture pixels to logical pixels
+    scale = _get_retina_scale()
 
     ns_data = NSData.dataWithBytes_length_(image_bytes, len(image_bytes))
     handler = Vision.VNImageRequestHandler.alloc().initWithData_options_(ns_data, None)
@@ -54,11 +84,12 @@ def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, imag
             continue
         text = candidates[0].string()
         bbox = obs.boundingBox()
-        # Apple Vision: origin bottom-left, normalized 0-1. Convert to top-left pixels.
-        x = int(bbox.origin.x * image_width)
-        y = int((1 - bbox.origin.y - bbox.size.height) * image_height)
-        w = int(bbox.size.width * image_width)
-        h = int(bbox.size.height * image_height)
+        # Apple Vision: origin bottom-left, normalized 0-1.
+        # Convert to top-left, logical screen pixels (divided by Retina scale).
+        x = int((bbox.origin.x * image_width) / scale)
+        y = int(((1 - bbox.origin.y - bbox.size.height) * image_height) / scale)
+        w = int((bbox.size.width * image_width) / scale)
+        h = int((bbox.size.height * image_height) / scale)
         elements.append(OcrElement(text=text, x=x, y=y, w=w, h=h))
     return elements
 
