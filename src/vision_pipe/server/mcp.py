@@ -56,7 +56,13 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         win = matches[index]
         try:
             img = await ctx.capture.capture_window_bytes(win.window_id)
-            elements = ocr_with_bounds(img)
+            from vision_pipe.core.ocr import _get_retina_scale
+            scale = _get_retina_scale()
+            elements = ocr_with_bounds(
+                img,
+                window_x=int(win.x / scale),
+                window_y=int(win.y / scale),
+            )
             full_text = "\n".join(e.text for e in elements)
         except Exception as e:
             return {"error": f"Capture/OCR failed: {e}"}
@@ -110,7 +116,24 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
     async def action_hotkey(keys: list[str]) -> dict:
         return ctx.actions.hotkey(keys)
 
-    async def action_scroll(amount: int, x: int | None = None, y: int | None = None) -> dict:
+    async def action_scroll(amount: int, x: int | None = None, y: int | None = None, app: str | None = None) -> dict:
+        """Scroll in an app. If app is specified, activates it and clicks center first."""
+        if app:
+            ctx.actions.activate_window(app)
+            import asyncio
+            await asyncio.sleep(0.3)
+            # Click center of the app window to ensure focus
+            windows = ctx.capture.list_windows()
+            app_lower = app.lower()
+            matches = [w for w in windows if app_lower in w.owner.lower()]
+            if matches:
+                from vision_pipe.core.ocr import _get_retina_scale
+                scale = _get_retina_scale()
+                win = matches[0]
+                center_x = int(win.x / scale) + win.width // (2 * int(scale))
+                center_y = int(win.y / scale) + win.height // (2 * int(scale))
+                ctx.actions.click(center_x, center_y)
+                await asyncio.sleep(0.1)
         return ctx.actions.scroll(amount, x=x, y=y)
 
     async def action_drag(start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.5) -> dict:
@@ -132,8 +155,21 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         """Open a URL in a browser — handles clipboard paste to avoid keyboard layout issues."""
         import subprocess as sp
         sp.run(["open", "-a", browser, url], capture_output=True, timeout=5)
+        # Wait for page to start loading
         import asyncio
-        await asyncio.sleep(2)
+        await asyncio.sleep(1.5)
+        # Return with OCR of the browser for immediate context
+        try:
+            windows = ctx.capture.list_windows()
+            browser_lower = browser.lower()
+            matches = [w for w in windows if browser_lower in w.owner.lower()]
+            if matches:
+                from vision_pipe.core.ocr import ocr_full_text
+                img = await ctx.capture.capture_window_bytes(matches[0].window_id)
+                page_text = ocr_full_text(img)
+                return {"status": "ok", "action": "open_url", "url": url, "browser": browser, "page_preview": page_text[:1000]}
+        except Exception:
+            pass
         return {"status": "ok", "action": "open_url", "url": url, "browser": browser}
 
     async def action_type_safe(text: str) -> dict:
@@ -163,7 +199,13 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
 
         win = matches[0]
         img = await ctx.capture.capture_window_bytes(win.window_id)
-        elements = ocr_with_bounds(img)
+        from vision_pipe.core.ocr import _get_retina_scale
+        scale = _get_retina_scale()
+        elements = ocr_with_bounds(
+            img,
+            window_x=int(win.x / scale),
+            window_y=int(win.y / scale),
+        )
 
         text_lower = text.lower()
         found = [e for e in elements if text_lower in e.text.lower()]

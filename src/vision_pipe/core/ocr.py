@@ -46,11 +46,20 @@ def _get_retina_scale() -> float:
     return _retina_scale_cache
 
 
-def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, image_width: int | None = None, image_height: int | None = None) -> list[OcrElement]:
-    """Run OCR and return elements with bounding boxes in LOGICAL screen coordinates.
+def ocr_with_bounds(
+    image_bytes: bytes,
+    languages: list[str] | None = None,
+    image_width: int | None = None,
+    image_height: int | None = None,
+    window_x: int = 0,
+    window_y: int = 0,
+) -> list[OcrElement]:
+    """Run OCR and return elements with bounding boxes in ABSOLUTE screen coordinates.
 
-    Coordinates are automatically scaled for Retina displays so they work
-    directly with pyautogui click(x, y) — no manual division needed.
+    Coordinates are automatically:
+    - Scaled for Retina displays (divided by scale factor)
+    - Offset by window position (window_x, window_y)
+    So they work directly with pyautogui click(x, y).
     """
     import Vision
     from Foundation import NSData
@@ -87,8 +96,9 @@ def ocr_with_bounds(image_bytes: bytes, languages: list[str] | None = None, imag
         bbox = obs.boundingBox()
         # Apple Vision: origin bottom-left, normalized 0-1.
         # Convert to top-left, logical screen pixels (divided by Retina scale).
-        x = int((bbox.origin.x * image_width) / scale)
-        y = int(((1 - bbox.origin.y - bbox.size.height) * image_height) / scale)
+        # Add window offset for absolute screen coordinates.
+        x = int((bbox.origin.x * image_width) / scale) + window_x
+        y = int(((1 - bbox.origin.y - bbox.size.height) * image_height) / scale) + window_y
         w = int((bbox.size.width * image_width) / scale)
         h = int((bbox.size.height * image_height) / scale)
         elements.append(OcrElement(text=text, x=x, y=y, w=w, h=h))

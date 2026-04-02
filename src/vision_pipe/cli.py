@@ -69,7 +69,7 @@ async def _run_mcp_server(cfg):
         "action_type_text": {"type": "object", "properties": {"text": {"type": "string"}, "interval": {"type": "number"}}, "required": ["text"]},
         "action_press": {"type": "object", "properties": {"key": {"type": "string"}, "presses": {"type": "integer"}}, "required": ["key"]},
         "action_hotkey": {"type": "object", "properties": {"keys": {"type": "array", "items": {"type": "string"}}}, "required": ["keys"]},
-        "action_scroll": {"type": "object", "properties": {"amount": {"type": "integer"}, "x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["amount"]},
+        "action_scroll": {"type": "object", "properties": {"amount": {"type": "integer", "description": "Scroll ticks: positive=up, negative=down"}, "x": {"type": "integer"}, "y": {"type": "integer"}, "app": {"type": "string", "description": "App to scroll in (activates and focuses automatically)"}}, "required": ["amount"]},
         "action_drag": {"type": "object", "properties": {"start_x": {"type": "integer"}, "start_y": {"type": "integer"}, "end_x": {"type": "integer"}, "end_y": {"type": "integer"}, "duration": {"type": "number"}}, "required": ["start_x", "start_y", "end_x", "end_y"]},
         "action_move_mouse": {"type": "object", "properties": {"x": {"type": "integer"}, "y": {"type": "integer"}}, "required": ["x", "y"]},
         "action_activate_window": {"type": "object", "properties": {"app": {"type": "string"}}, "required": ["app"]},
