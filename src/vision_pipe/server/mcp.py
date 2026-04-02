@@ -1,34 +1,32 @@
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
-from vision_pipe.core.world_model import WorldModel
-from vision_pipe.types import FocusPriority
+from PIL import Image
+import io
+
+from vision_pipe.core.capture import ScreenCapture
+from vision_pipe.core.actions import DesktopActions
 
 
 @dataclass
-class VisionMCPContext:
-    world_model: WorldModel
-    peripheral: Any
-    foveal: Any
-    capture: Any
+class VisionPipeContext:
+    capture: ScreenCapture
+    actions: DesktopActions
 
 
-def create_vision_tools(ctx: VisionMCPContext) -> dict[str, Any]:
+def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
 
-    async def get_state() -> dict:
-        """Get current screen state: all windows + OCR of active window."""
-        from vision_pipe.core.ocr import ocr_full_text
-
+    async def vision_list_windows() -> list[dict]:
         windows = ctx.capture.list_windows()
-        window_list = [
-            {"app": w.owner, "title": w.title, "width": w.width, "height": w.height}
-            for w in windows
-        ]
+        return [{"app": w.owner, "title": w.title, "width": w.width, "height": w.height, "window_id": w.window_id} for w in windows]
 
-        # OCR the frontmost window for text content
+    async def vision_get_state() -> dict:
+        from vision_pipe.core.ocr import ocr_full_text
+        windows = ctx.capture.list_windows()
+        window_list = [{"app": w.owner, "title": w.title, "width": w.width, "height": w.height} for w in windows]
         active_text = ""
         if windows:
             try:
@@ -36,92 +34,111 @@ def create_vision_tools(ctx: VisionMCPContext) -> dict[str, Any]:
                 active_text = ocr_full_text(img)
             except Exception:
                 active_text = "(OCR failed)"
+        return {"windows": window_list, "active_window": window_list[0] if window_list else None, "active_window_text": active_text[:3000]}
 
-        return {
-            "windows": window_list,
-            "active_window": window_list[0] if window_list else None,
-            "active_window_text": active_text[:3000],
-        }
-
-    async def read_window(app: str | None = None, index: int = 0) -> dict:
-        """Read text content of a specific window via native OCR.
-
-        Args:
-            app: App name to find (e.g. "Chrome", "Safari", "Terminal"). Case-insensitive partial match.
-            index: Which window if multiple matches (0 = first/frontmost).
-        """
-        from vision_pipe.core.ocr import ocr_full_text
-
+    async def vision_read_window(app: str | None = None, index: int = 0) -> dict:
+        from vision_pipe.core.ocr import ocr_with_bounds
         windows = ctx.capture.list_windows()
-
         if app:
             app_lower = app.lower()
             matches = [w for w in windows if app_lower in w.owner.lower() or app_lower in w.title.lower()]
         else:
             matches = windows
-
         if not matches:
             return {"error": f"No window found for '{app}'", "available": [w.owner for w in windows]}
-
         if index >= len(matches):
             index = 0
-
         win = matches[index]
         try:
             img = await ctx.capture.capture_window_bytes(win.window_id)
-            text = ocr_full_text(img)
+            elements = ocr_with_bounds(img)
+            full_text = "\n".join(e.text for e in elements)
         except Exception as e:
             return {"error": f"Capture/OCR failed: {e}"}
+        return {"app": win.owner, "title": win.title, "size": f"{win.width}x{win.height}", "text": full_text[:5000], "elements": [e.to_dict() for e in elements[:100]]}
 
-        return {
-            "app": win.owner,
-            "title": win.title,
-            "size": f"{win.width}x{win.height}",
-            "text": text[:5000],
-        }
+    async def vision_screenshot(app: str | None = None) -> dict:
+        if app:
+            windows = ctx.capture.list_windows()
+            app_lower = app.lower()
+            matches = [w for w in windows if app_lower in w.owner.lower() or app_lower in w.title.lower()]
+            if not matches:
+                return {"error": f"No window found for '{app}'"}
+            img_bytes = await ctx.capture.capture_window_bytes(matches[0].window_id)
+        else:
+            img_bytes = await ctx.capture.capture_bytes()
+        encoded = base64.b64encode(img_bytes).decode()
+        pil = Image.open(io.BytesIO(img_bytes))
+        return {"image_base64": encoded, "width": pil.width, "height": pil.height}
 
-    async def describe(region: str | None = None) -> dict:
-        """Describe screen via VLM (requires working Ollama). Falls back to OCR."""
-        try:
-            image_bytes = await ctx.capture.capture_bytes()
-            scan_result = await ctx.peripheral.scan(image_bytes)
-            ctx.world_model.update_from_scan(scan_result)
-            if region is None:
-                return ctx.world_model.get_state().model_dump(mode="json")
-            region_info = ctx.world_model.find_region(region)
-            if region_info is None:
-                return {"error": f"Region '{region}' not found"}
-            focus_result = await ctx.foveal.focus(image_bytes, region_info, region)
-            ctx.world_model.update_from_focus(focus_result)
-            return focus_result.model_dump(mode="json")
-        except Exception as e:
-            # Fallback to OCR
-            return await get_state()
+    async def vision_get_changes() -> dict:
+        return {"changes": [], "note": "Change detection requires continuous monitoring (future feature)"}
 
-    async def get_changes(since: str | None = None) -> dict:
-        since_dt = None
-        if since:
-            since_dt = datetime.fromisoformat(since)
-        changes = ctx.world_model.get_changes(since=since_dt)
-        return {"changes": [c.model_dump(mode="json") for c in changes]}
+    async def action_click(x: int, y: int, button: str = "left", clicks: int = 1) -> dict:
+        return ctx.actions.click(x, y, button=button, clicks=clicks)
 
-    async def focus(region: str, priority: str = "high") -> dict:
-        try:
-            prio = FocusPriority(priority)
-        except ValueError:
-            return {"error": f"Invalid priority: {priority}"}
-        ctx.world_model.set_focus(region, prio)
-        return {"status": "ok", "region": region, "priority": priority}
+    async def action_double_click(x: int, y: int) -> dict:
+        return ctx.actions.double_click(x, y)
 
-    async def ignore(region: str) -> dict:
-        ctx.world_model.set_focus(region, FocusPriority.IGNORED)
-        return {"status": "ok", "region": region, "priority": "ignored"}
+    async def action_right_click(x: int, y: int) -> dict:
+        return ctx.actions.right_click(x, y)
+
+    async def action_type_text(text: str, interval: float = 0) -> dict:
+        return ctx.actions.type_text(text, interval=interval)
+
+    async def action_press(key: str, presses: int = 1) -> dict:
+        return ctx.actions.press(key, presses=presses)
+
+    async def action_hotkey(keys: list[str]) -> dict:
+        return ctx.actions.hotkey(keys)
+
+    async def action_scroll(amount: int, x: int | None = None, y: int | None = None) -> dict:
+        return ctx.actions.scroll(amount, x=x, y=y)
+
+    async def action_drag(start_x: int, start_y: int, end_x: int, end_y: int, duration: float = 0.5) -> dict:
+        return ctx.actions.drag(start_x, start_y, end_x, end_y, duration=duration)
+
+    async def action_move_mouse(x: int, y: int) -> dict:
+        return ctx.actions.move_mouse(x, y)
+
+    async def action_activate_window(app: str) -> dict:
+        return ctx.actions.activate_window(app)
+
+    async def action_clipboard_copy(text: str) -> dict:
+        return ctx.actions.clipboard_copy(text)
+
+    async def action_clipboard_paste() -> dict:
+        return ctx.actions.clipboard_paste()
+
+    async def system_check_permissions() -> dict:
+        from vision_pipe.core.permissions import check_accessibility
+        return check_accessibility()
+
+    async def system_get_mouse_position() -> dict:
+        return ctx.actions.get_mouse_position()
+
+    async def system_get_screen_size() -> dict:
+        return ctx.actions.get_screen_size()
 
     return {
-        "get_state": get_state,
-        "read_window": read_window,
-        "describe": describe,
-        "get_changes": get_changes,
-        "focus": focus,
-        "ignore": ignore,
+        "vision_list_windows": vision_list_windows,
+        "vision_get_state": vision_get_state,
+        "vision_read_window": vision_read_window,
+        "vision_screenshot": vision_screenshot,
+        "vision_get_changes": vision_get_changes,
+        "action_click": action_click,
+        "action_double_click": action_double_click,
+        "action_right_click": action_right_click,
+        "action_type_text": action_type_text,
+        "action_press": action_press,
+        "action_hotkey": action_hotkey,
+        "action_scroll": action_scroll,
+        "action_drag": action_drag,
+        "action_move_mouse": action_move_mouse,
+        "action_activate_window": action_activate_window,
+        "action_clipboard_copy": action_clipboard_copy,
+        "action_clipboard_paste": action_clipboard_paste,
+        "system_check_permissions": system_check_permissions,
+        "system_get_mouse_position": system_get_mouse_position,
+        "system_get_screen_size": system_get_screen_size,
     }
