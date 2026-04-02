@@ -109,21 +109,28 @@ TEXT EDITING (any text field):
 CHOOSING THE RIGHT APPROACH — CRITICAL:
 Before using vision-pipe for a task, ask: what's the fastest way?
 
+PRIORITY ORDER (try in this order):
+1. API/WebFetch — if the site has an API or page is fetchable (fastest)
+2. vision-pipe — if API is blocked, requires auth, or it's a desktop app (reliable, works everywhere)
+
 USE vision-pipe (eyes + hands) for:
-- Desktop apps with no API (Telegram, Discord, Finder, Spotify, any native app)
+- Desktop apps (Telegram, Discord, Finder, Spotify, any native app)
+- Websites that block bots/API/scraping
+- Sites requiring login session (you see what the user sees in their browser)
+- Anything behind a paywall, captcha, or anti-bot protection
 - Checking what's on screen / reading app state
-- Clicking buttons, filling forms, interacting with UI
-- Anything that REQUIRES seeing the screen or controlling mouse/keyboard
+- Clicking buttons, filling forms, interacting with any UI
+- When WebFetch returns errors, 403, captcha pages, or empty content
 
-DO NOT use vision-pipe for:
-- Reading web page content — use WebFetch/curl instead (10x faster)
-- Collecting data from websites — use their API if available
-- Scraping/scrolling through long web pages — fetch the URL directly
+PREFER WebFetch/API when:
+- The page is publicly accessible and returns useful content
+- You need to process large amounts of data quickly
+- No login/session is required
 
-COMBINED APPROACH (best):
-1. Use WebFetch/API for data gathering (fast)
-2. Use vision-pipe for desktop interaction (reliable)
-3. Use action_open_url to navigate, vision_read_window to verify page loaded
+FALLBACK STRATEGY:
+1. Try WebFetch first → if it works, use it (fast)
+2. If WebFetch fails (403, blocked, empty, login required) → switch to vision-pipe
+3. vision-pipe ALWAYS works — it sees exactly what the user sees in their browser
 
 NAVIGATION STRATEGY:
 1. To open a URL: action_open_url(url) — fastest, no keyboard issues
