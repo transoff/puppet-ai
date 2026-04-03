@@ -143,6 +143,24 @@ SPEED TIPS:
 - Cache is automatically cleared after any action (click, type, scroll)
 - action_click_and_wait is faster than click + sleep(3) + read_window — waits exactly as long as needed
 
+BROWSER TOOLS (browser_* — Chrome DevTools Protocol):
+- browser_navigate(url) — navigate Chrome to URL (reliable, no keyboard issues)
+- browser_fill(selector, value) — fill form input by CSS selector (works where action_type_text fails)
+- browser_click(selector) — click element by CSS selector (precise DOM click)
+- browser_get_text() — get full page text via DOM (faster than OCR for web pages)
+- browser_evaluate(js) — execute JavaScript in page context
+
+WHEN TO USE BROWSER TOOLS vs ACTION TOOLS:
+- For web forms, inputs, selectors → browser_fill, browser_click (DOM-level, always works)
+- For desktop apps, non-Chrome browsers → action_click, action_type_safe (screen-level)
+- For reading web page text → browser_get_text (instant, no OCR needed)
+- For reading desktop app text → vision_read_window (OCR)
+
+BROWSER SETUP:
+- browser_* tools require Chrome with --remote-debugging-port=9222
+- On first browser_* call, puppet-ai connects automatically
+- If Chrome isn't in debug mode, you'll get an error with restart instructions
+
 NAVIGATION STRATEGY:
 1. To open a URL: action_open_url(url) — fastest, no keyboard issues
 2. To open an app: action_activate_window(app) or action_hotkey(["cmd","space"]) + paste name
