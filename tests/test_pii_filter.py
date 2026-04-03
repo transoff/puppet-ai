@@ -1,5 +1,5 @@
 # tests/test_pii_filter.py
-from vision_pipe.core.pii_filter import PiiFilter
+from puppet_ai.core.pii_filter import PiiFilter
 
 
 def test_mask_api_key():

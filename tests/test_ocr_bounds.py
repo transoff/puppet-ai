@@ -2,7 +2,7 @@ from __future__ import annotations
 import pytest
 from PIL import Image, ImageDraw
 import io
-from vision_pipe.core.ocr import ocr_with_bounds, OcrElement
+from puppet_ai.core.ocr import ocr_with_bounds, OcrElement
 
 
 @pytest.fixture

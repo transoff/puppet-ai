@@ -1,7 +1,7 @@
 # tests/test_peripheral.py
 import pytest
-from vision_pipe.core.peripheral import PeripheralVision
-from vision_pipe.types import FocusResult, RegionInfo, ScanResult
+from puppet_ai.core.peripheral import PeripheralVision
+from puppet_ai.types import FocusResult, RegionInfo, ScanResult
 
 
 class MockProvider:

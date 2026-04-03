@@ -1,5 +1,5 @@
 # tests/test_instructions.py
-from vision_pipe.instructions import MCP_INSTRUCTIONS
+from puppet_ai.instructions import MCP_INSTRUCTIONS
 
 def test_instructions_is_string():
     assert isinstance(MCP_INSTRUCTIONS, str) and len(MCP_INSTRUCTIONS) > 100

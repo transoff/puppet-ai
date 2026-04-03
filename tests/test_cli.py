@@ -1,6 +1,6 @@
 # tests/test_cli.py
 from click.testing import CliRunner
-from vision_pipe.cli import main
+from puppet_ai.cli import main
 
 
 def test_cli_help():

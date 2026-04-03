@@ -1,7 +1,7 @@
 from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
-from vision_pipe.server.mcp import create_all_tools, VisionPipeContext
+from puppet_ai.server.mcp import create_all_tools, VisionPipeContext
 
 
 @pytest.fixture
@@ -104,10 +104,10 @@ async def test_system_get_screen_size(ctx):
 @pytest.mark.asyncio
 async def test_vision_screenshot(ctx):
     tools = create_all_tools(ctx)
-    with patch("vision_pipe.server.mcp.base64") as mock_b64:
+    with patch("puppet_ai.server.mcp.base64") as mock_b64:
         mock_b64.b64encode.return_value = b"aW1hZ2U="
         # Need to also patch PIL
-        with patch("vision_pipe.server.mcp.Image") as mock_pil:
+        with patch("puppet_ai.server.mcp.Image") as mock_pil:
             mock_img = MagicMock()
             mock_img.width = 800
             mock_img.height = 600

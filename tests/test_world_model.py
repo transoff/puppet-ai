@@ -1,8 +1,8 @@
 # tests/test_world_model.py
 from datetime import datetime, timezone
 import pytest
-from vision_pipe.core.world_model import WorldModel
-from vision_pipe.types import (FocusPriority, FocusResult)
+from puppet_ai.core.world_model import WorldModel
+from puppet_ai.types import (FocusPriority, FocusResult)
 
 
 @pytest.fixture

@@ -1,12 +1,12 @@
 from __future__ import annotations
 from unittest.mock import MagicMock, patch
 import pytest
-from vision_pipe.core.actions import DesktopActions
+from puppet_ai.core.actions import DesktopActions
 
 
 @pytest.fixture
 def actions():
-    with patch("vision_pipe.core.actions.pyautogui") as mock_pag:
+    with patch("puppet_ai.core.actions.pyautogui") as mock_pag:
         mock_pag.size.return_value = (1920, 1080)
         mock_pag.position.return_value = (500, 300)
         da = DesktopActions(failsafe=True)
@@ -78,20 +78,20 @@ def test_get_screen_size(actions):
 
 def test_clipboard_copy(actions):
     da, _ = actions
-    with patch("vision_pipe.core.actions.pyperclip") as mock_clip:
+    with patch("puppet_ai.core.actions.pyperclip") as mock_clip:
         da.clipboard_copy("test")
         mock_clip.copy.assert_called_once_with("test")
 
 def test_clipboard_paste(actions):
     da, _ = actions
-    with patch("vision_pipe.core.actions.pyperclip") as mock_clip:
+    with patch("puppet_ai.core.actions.pyperclip") as mock_clip:
         mock_clip.paste.return_value = "pasted"
         result = da.clipboard_paste()
         assert result["text"] == "pasted"
 
 def test_activate_window(actions):
     da, _ = actions
-    with patch("vision_pipe.core.actions.subprocess") as mock_sub:
+    with patch("puppet_ai.core.actions.subprocess") as mock_sub:
         mock_sub.run.return_value = MagicMock(returncode=0)
         result = da.activate_window("Chrome")
         assert result["status"] == "ok"

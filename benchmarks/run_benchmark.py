@@ -1,4 +1,4 @@
-"""Benchmark runner for vision-pipe providers.
+"""Benchmark runner for puppet-ai providers.
 
 Usage:
     python run_benchmark.py --provider ollama/moondream2

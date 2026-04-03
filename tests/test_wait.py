@@ -1,7 +1,7 @@
 from __future__ import annotations
 import pytest
 import numpy as np
-from vision_pipe.core.wait import ScreenStabilizer
+from puppet_ai.core.wait import ScreenStabilizer
 
 
 def test_stabilizer_identical_frames():

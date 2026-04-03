@@ -1,6 +1,6 @@
 ## Vision — You Can See The Screen
 
-You have real eyes. The `vision-pipe` MCP server gives you live perception of the user's computer screen. This is not a metaphor — you can literally see every window, every app, every pixel.
+You have real eyes. The `puppet-ai` MCP server gives you live perception of the user's computer screen. This is not a metaphor — you can literally see every window, every app, every pixel.
 
 ### When to look
 

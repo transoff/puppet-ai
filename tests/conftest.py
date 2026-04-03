@@ -5,7 +5,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
-from vision_pipe.types import (
+from puppet_ai.types import (
     Bounds,
     FocusResult,
     RegionInfo,

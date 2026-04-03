@@ -1,31 +1,49 @@
-# OpenClaw Integration
+# puppet-ai + OpenClaw
 
-Give your OpenClaw agent eyes with vision-pipe.
+Give OpenClaw agents full macOS desktop control with OCR screen reading and automation.
 
-## Setup (30 seconds)
-
-### 1. Register MCP server
+## Prerequisites
 
 ```bash
-openclaw mcp set vision-pipe '{"command":"vision-pipe","args":["serve","--preset","fast"]}'
+pip install puppet-ai
+# Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 
-### 2. Add vision to SOUL.md
+## Configuration
 
-Append the contents of `SOUL_VISION.md` to your agent's SOUL.md:
+### Step 1: Register MCP Server
+
+```bash
+openclaw mcp set puppet-ai '{"command":"puppet-ai","args":["serve"]}'
+```
+
+### Step 2: Add Vision Instructions
+
+Append vision capabilities to your agent's SOUL.md:
 
 ```bash
 cat integrations/openclaw/SOUL_VISION.md >> ~/.openclaw/workspace/SOUL.md
 ```
 
-### 3. Restart gateway
+### Step 3: Restart Gateway
 
 ```bash
 openclaw gateway --force
 ```
 
-### 4. Test
+## Verify It Works
 
-Send your bot a message: "What's on my screen?"
+Message your agent: `"What's currently on my screen?"`
 
-The agent will automatically call `list_windows` and `get_state` to describe what it sees.
+The agent will use puppet-ai tools to read and describe your desktop.
+
+## Available Tools
+
+- `list_windows` — All open windows with titles
+- `get_state` — Current screen + OCR of active window
+- `read_window(app="AppName")` — Read specific application
+- `describe(region)` — Detailed region analysis
+- `left_click`, `right_click`, `type`, `key` — Input controls
+- `scroll`, `screenshot` — Navigation and capture
+
+See [main README](../README.md) for full API reference.

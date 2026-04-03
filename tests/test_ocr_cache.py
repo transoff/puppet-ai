@@ -1,7 +1,7 @@
 from __future__ import annotations
 import time
 import pytest
-from vision_pipe.core.ocr_cache import OcrCache
+from puppet_ai.core.ocr_cache import OcrCache
 
 
 @pytest.fixture

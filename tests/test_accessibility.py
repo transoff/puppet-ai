@@ -1,7 +1,7 @@
 # tests/test_accessibility.py
 from __future__ import annotations
 import pytest
-from vision_pipe.core.accessibility import get_ui_elements, UIElement
+from puppet_ai.core.accessibility import get_ui_elements, UIElement
 
 
 def test_get_ui_elements_returns_list():

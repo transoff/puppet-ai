@@ -3,8 +3,8 @@ import pytest
 from PIL import Image
 import io
 import numpy as np
-from vision_pipe.core.foveal import FovealFocus
-from vision_pipe.types import Bounds, FocusResult, RegionInfo, ScanResult
+from puppet_ai.core.foveal import FovealFocus
+from puppet_ai.types import Bounds, FocusResult, RegionInfo, ScanResult
 
 
 class MockFocusProvider:

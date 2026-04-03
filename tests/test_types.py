@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from vision_pipe.types import (
+from puppet_ai.types import (
     Bounds,
     ChangeEvent,
     ChangedArea,

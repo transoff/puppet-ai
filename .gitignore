@@ -7,4 +7,15 @@ build/
 .pytest_cache/
 .ruff_cache/
 .superpowers/
+.DS_Store
 *.DS_Store
+
+# Test artifacts
+TEST_RESULTS.md
+TEST_EXECUTION_SUMMARY.txt
+COMPREHENSIVE_TEST_REPORT.md
+00_TEST_INDEX.md
+test_results.log
+test_comprehensive.py
+twitter_news_*.py
+TWITTER_NEWS_REPORT.md

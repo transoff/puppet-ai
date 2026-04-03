@@ -1,5 +1,5 @@
 # tests/test_permissions.py
-from vision_pipe.core.permissions import check_accessibility
+from puppet_ai.core.permissions import check_accessibility
 
 def test_check_accessibility_returns_dict():
     result = check_accessibility()

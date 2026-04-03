@@ -2,7 +2,7 @@
 import numpy as np
 import pytest
 
-from vision_pipe.core.detector import ChangeDetector
+from puppet_ai.core.detector import ChangeDetector
 
 
 @pytest.fixture

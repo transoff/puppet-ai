@@ -1,6 +1,6 @@
 import pytest
-from vision_pipe.config.schema import VisionPipeConfig, PhaseConfig
-from vision_pipe.config.presets import get_preset, list_presets
+from puppet_ai.config.schema import VisionPipeConfig, PhaseConfig
+from puppet_ai.config.presets import get_preset, list_presets
 
 
 def test_default_config():

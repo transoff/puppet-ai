@@ -1,8 +1,8 @@
 import pytest
 
-from vision_pipe.providers import ProviderRegistry
-from vision_pipe.providers.base import VisionProvider
-from vision_pipe.types import FocusResult, RegionInfo, ScanResult
+from puppet_ai.providers import ProviderRegistry
+from puppet_ai.providers.base import VisionProvider
+from puppet_ai.types import FocusResult, RegionInfo, ScanResult
 
 
 class FakeProvider(VisionProvider):
