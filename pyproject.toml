@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "puppet-ai"
+name = "puppet-agent"
 version = "0.1.0"
 description = "Full computer control for AI agents — see, click, type, scroll via MCP"
 readme = "README.md"

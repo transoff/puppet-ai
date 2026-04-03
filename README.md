@@ -18,7 +18,7 @@ Give any AI agent eyes and hands. puppet-ai captures the screen, reads text via 
 ### 1. Install
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 ```
 
 ### 2. Enable Accessibility
