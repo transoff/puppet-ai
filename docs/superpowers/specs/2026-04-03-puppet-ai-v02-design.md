@@ -1,10 +1,15 @@
-# puppet-ai v0.2 — CDP Browser + AI Vision
+# puppet-ai v0.2 — CDP Browser + AI Vision + Best Practices
 
 ## Goal
 
-Add two capabilities to puppet-ai:
+Major upgrade inspired by best practices from top MCP servers (Playwright MCP 30k stars, Chrome DevTools MCP 33k stars, Peekaboo 3k stars, browser-use 85k stars):
+
 1. Chrome DevTools Protocol (CDP) for reliable browser automation (DOM access, form filling, JS execution)
 2. AI vision agent that automatically analyzes screenshots via a fast model
+3. Element ID overlay on screenshots (from Peekaboo) — agent says "click element 7" instead of coordinates
+4. Accessibility tree snapshot (from Playwright MCP) — 100x cheaper than screenshots for web content
+5. Tab management — list/switch tabs via CDP
+6. Natural language browser actions — `browser_act("fill the login form")` via AI
 
 ## Architecture
 
@@ -42,6 +47,10 @@ Connection is lazy (first use) and cached for the session.
 | `browser_evaluate(js)` | JavaScript string | Execute JS in page context, return result as string. |
 | `browser_get_text()` | — | Get full page text via `document.body.innerText` (DOM, not OCR). |
 | `browser_navigate(url)` | URL string | Navigate current tab to URL. Waits for load. |
+| `browser_snapshot()` | — | Get accessibility tree of current page (structured, 100x cheaper than screenshot). |
+| `browser_list_tabs()` | — | List all open Chrome tabs (title, url, id). |
+| `browser_switch_tab(tab_id)` | Tab ID | Switch to a specific tab. |
+| `browser_act(action)` | Natural language string | AI-powered action: "fill the login form", "click Submit". Uses vision agent to understand page and execute. |
 
 ### Implementation
 
