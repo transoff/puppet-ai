@@ -454,6 +454,50 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         except Exception as e:
             return {"error": f"CDP error: {e}"}
 
+    async def vision_screenshot_elements(app: str | None = None, max_width: int = 800) -> dict:
+        """Screenshot with numbered element overlays — agent says 'click element 7'."""
+        from puppet_ai.core.element_overlay import draw_element_ids
+        from puppet_ai.core.ocr import ocr_with_bounds
+
+        if app:
+            windows = ctx.capture.list_windows()
+            app_lower = app.lower()
+            matches = [w for w in windows if app_lower in w.owner.lower() or app_lower in w.title.lower()]
+            if not matches:
+                return {"error": f"No window found for '{app}'"}
+            win = matches[0]
+            img_bytes = await ctx.capture.capture_window_bytes(win.window_id)
+            elements_raw = ocr_with_bounds(img_bytes, window_x=int(win.x), window_y=int(win.y))
+        else:
+            img_bytes = await ctx.capture.capture_bytes()
+            elements_raw = ocr_with_bounds(img_bytes)
+
+        pil = Image.open(io.BytesIO(img_bytes))
+        if pil.width > max_width:
+            ratio = max_width / pil.width
+            pil = pil.resize((max_width, int(pil.height * ratio)), Image.Resampling.LANCZOS)
+
+        buf = io.BytesIO()
+        pil.save(buf, format="JPEG", quality=80)
+        resized_bytes = buf.getvalue()
+
+        element_dicts = [e.to_dict() for e in elements_raw[:50]]
+        annotated_bytes, indexed_elements = draw_element_ids(resized_bytes, element_dicts)
+
+        encoded = base64.b64encode(annotated_bytes).decode()
+        ai_desc = await ctx.vision_agent.analyze(annotated_bytes)
+
+        result = {
+            "image_base64": encoded,
+            "width": pil.width,
+            "height": pil.height,
+            "elements": indexed_elements,
+            "count": len(indexed_elements),
+        }
+        if ai_desc:
+            result["ai_description"] = ai_desc
+        return result
+
     return {
         "vision_list_windows": vision_list_windows,
         "vision_get_state": vision_get_state,
@@ -487,4 +531,5 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "browser_click": browser_click,
         "browser_get_text": browser_get_text,
         "browser_evaluate": browser_evaluate,
+        "vision_screenshot_elements": vision_screenshot_elements,
     }

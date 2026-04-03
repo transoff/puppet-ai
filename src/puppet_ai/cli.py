@@ -90,6 +90,7 @@ async def _run_mcp_server(cfg):
         "browser_click": {"type": "object", "properties": {"selector": {"type": "string", "description": "CSS selector to click"}}, "required": ["selector"]},
         "browser_get_text": {"type": "object", "properties": {}},
         "browser_evaluate": {"type": "object", "properties": {"js": {"type": "string", "description": "JavaScript to execute in page context"}}, "required": ["js"]},
+        "vision_screenshot_elements": {"type": "object", "properties": {"app": {"type": "string", "description": "App name, or omit for full screen"}}},
     }
 
     TOOL_DESCRIPTIONS = {
@@ -125,6 +126,7 @@ async def _run_mcp_server(cfg):
         "browser_click": "Click element by CSS selector — precise DOM click, not screen coordinates",
         "browser_get_text": "Get full page text via DOM — faster and more reliable than OCR for web pages",
         "browser_evaluate": "Execute JavaScript in page context and return result",
+        "vision_screenshot_elements": "Screenshot with numbered element labels — say 'click element 7' instead of coordinates. Best for complex UIs.",
     }
 
     @server.list_tools()
