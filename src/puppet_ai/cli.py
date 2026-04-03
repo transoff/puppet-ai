@@ -5,7 +5,7 @@ import click
 
 
 @click.group()
-@click.version_option(package_name="puppet-ai")
+@click.version_option(package_name="puppet-agent")
 def main():
     """puppet-ai: Full computer control for AI agents."""
     pass
