@@ -91,6 +91,10 @@ async def _run_mcp_server(cfg):
         "browser_get_text": {"type": "object", "properties": {}},
         "browser_evaluate": {"type": "object", "properties": {"js": {"type": "string", "description": "JavaScript to execute in page context"}}, "required": ["js"]},
         "vision_screenshot_elements": {"type": "object", "properties": {"app": {"type": "string", "description": "App name, or omit for full screen"}}},
+        "browser_snapshot": {"type": "object", "properties": {}},
+        "browser_list_tabs": {"type": "object", "properties": {}},
+        "browser_switch_tab": {"type": "object", "properties": {"tab_id": {"type": "string", "description": "Tab ID from browser_list_tabs"}}, "required": ["tab_id"]},
+        "browser_act": {"type": "object", "properties": {"action": {"type": "string", "description": "Natural language action: 'fill the email field', 'click Submit', 'scroll to pricing'"}}, "required": ["action"]},
     }
 
     TOOL_DESCRIPTIONS = {
@@ -127,6 +131,10 @@ async def _run_mcp_server(cfg):
         "browser_get_text": "Get full page text via DOM — faster and more reliable than OCR for web pages",
         "browser_evaluate": "Execute JavaScript in page context and return result",
         "vision_screenshot_elements": "Screenshot with numbered element labels — say 'click element 7' instead of coordinates. Best for complex UIs.",
+        "browser_snapshot": "Get page accessibility tree — structured text, 100x cheaper than screenshot. Best for reading page structure.",
+        "browser_list_tabs": "List all open Chrome tabs (title, url, id)",
+        "browser_switch_tab": "Switch to a specific Chrome tab by ID",
+        "browser_act": "Natural language browser action — AI understands page and executes. Example: 'fill the registration form'",
     }
 
     @server.list_tools()

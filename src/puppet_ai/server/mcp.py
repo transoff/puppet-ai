@@ -498,6 +498,91 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             result["ai_description"] = ai_desc
         return result
 
+    async def browser_snapshot() -> dict:
+        """Get accessibility tree of current page — structured, 100x cheaper than screenshot."""
+        try:
+            tree = await ctx.cdp.get_accessibility_tree()
+            url = await ctx.cdp.evaluate("window.location.href")
+            title = await ctx.cdp.evaluate("document.title")
+            return {"status": "ok", "title": str(title), "url": str(url), "accessibility_tree": tree[:5000]}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_list_tabs() -> dict:
+        try:
+            tabs = await ctx.cdp.list_tabs()
+            return {"status": "ok", "tabs": tabs, "count": len(tabs)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_switch_tab(tab_id: str) -> dict:
+        try:
+            await ctx.cdp.switch_tab(tab_id)
+            title = await ctx.cdp.evaluate("document.title")
+            url = await ctx.cdp.evaluate("window.location.href")
+            return {"status": "ok", "action": "switch_tab", "title": str(title), "url": str(url)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_act(action: str) -> dict:
+        """Execute a natural language browser action using AI."""
+        try:
+            import json as _json
+            text = await ctx.cdp.evaluate("document.body.innerText")
+            html = await ctx.cdp.evaluate("""
+                (function() {
+                    var inputs = document.querySelectorAll('input, textarea, select, button, a');
+                    var els = [];
+                    for (var i = 0; i < Math.min(inputs.length, 30); i++) {
+                        var e = inputs[i];
+                        els.push({
+                            tag: e.tagName, type: e.type || '', id: e.id || '',
+                            name: e.name || '', placeholder: e.placeholder || '',
+                            text: e.innerText ? e.innerText.substring(0, 50) : '',
+                            className: e.className ? e.className.substring(0, 50) : '',
+                            index: i
+                        });
+                    }
+                    return JSON.stringify(els);
+                })()
+            """)
+
+            prompt = f"""You are a browser automation assistant. The user wants to: {action}
+
+Page interactive elements (JSON):
+{str(html)[:2000]}
+
+Page text preview:
+{str(text)[:1000]}
+
+Respond with ONLY JavaScript code that performs the action. Use document.querySelector or element indices.
+Examples:
+- To fill: document.querySelector('input[name="email"]').value = 'test@example.com'; document.querySelector('input[name="email"]').dispatchEvent(new Event('input', {{bubbles:true}}));
+- To click: document.querySelector('button[type="submit"]').click();
+
+JavaScript code ONLY, no explanation:"""
+
+            js_code = await ctx.vision_agent.analyze(b"", prompt=prompt)
+            if not js_code:
+                return {"error": "No AI provider configured for browser_act. Set PUPPET_VISION_PROVIDER."}
+
+            js_code = js_code.strip()
+            if js_code.startswith("```"):
+                js_code = js_code.split("\n", 1)[-1].rsplit("```", 1)[0]
+
+            result = await ctx.cdp.evaluate(js_code)
+            return {
+                "status": "ok", "action": "browser_act",
+                "request": action, "js_executed": js_code[:500],
+                "result": str(result)[:500] if result else "done",
+            }
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"browser_act error: {e}"}
+
     return {
         "vision_list_windows": vision_list_windows,
         "vision_get_state": vision_get_state,
@@ -532,4 +617,8 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "browser_get_text": browser_get_text,
         "browser_evaluate": browser_evaluate,
         "vision_screenshot_elements": vision_screenshot_elements,
+        "browser_snapshot": browser_snapshot,
+        "browser_list_tabs": browser_list_tabs,
+        "browser_switch_tab": browser_switch_tab,
+        "browser_act": browser_act,
     }

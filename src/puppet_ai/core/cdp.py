@@ -100,6 +100,56 @@ class CDPClient:
         await self.send("Page.navigate", {"url": url})
         await asyncio.sleep(1.5)
 
+    async def get_accessibility_tree(self) -> str:
+        """Get page accessibility tree — structured, token-efficient alternative to screenshots."""
+        result = await self.send("Accessibility.getFullAXTree")
+        nodes = result.get("nodes", [])
+        lines = []
+        for node in nodes[:200]:
+            role = node.get("role", {}).get("value", "")
+            name = node.get("name", {}).get("value", "")
+            value = node.get("value", {}).get("value", "")
+            if not role or role in ("generic", "none", "InlineTextBox"):
+                continue
+            parts = [f"[{role}]"]
+            if name:
+                parts.append(f'"{name}"')
+            if value:
+                parts.append(f"value={value}")
+            lines.append(" ".join(parts))
+        return "\n".join(lines)
+
+    async def list_tabs(self) -> list[dict]:
+        """List all open Chrome tabs."""
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"http://localhost:{self.port}/json")
+            tabs = resp.json()
+        return [
+            {"id": t["id"], "title": t.get("title", ""), "url": t.get("url", ""), "type": t.get("type", "")}
+            for t in tabs if t.get("type") == "page"
+        ]
+
+    async def switch_tab(self, tab_id: str) -> None:
+        """Switch to a specific tab by ID. Reconnects websocket."""
+        import httpx
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"http://localhost:{self.port}/json")
+            tabs = resp.json()
+        target = None
+        for tab in tabs:
+            if tab["id"] == tab_id:
+                target = tab
+                break
+        if not target:
+            raise ValueError(f"Tab {tab_id} not found")
+        if self._ws:
+            await self._ws.close()
+            self._ws = None
+        import websockets
+        self._ws = await websockets.connect(target["webSocketDebuggerUrl"], max_size=10 * 1024 * 1024)
+        asyncio.create_task(self._listen())
+
     async def close(self) -> None:
         """Close websocket connection."""
         if self._ws:
