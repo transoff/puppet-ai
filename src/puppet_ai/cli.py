@@ -85,6 +85,11 @@ async def _run_mcp_server(cfg):
         "system_mask": {"type": "object", "properties": {}},
         "vision_ui_elements": {"type": "object", "properties": {"app": {"type": "string"}, "role_filter": {"type": "string", "description": "Filter: AXButton, AXCheckBox, AXLink, AXTextField"}, "max_depth": {"type": "integer"}}},
         "action_click_and_wait": {"type": "object", "properties": {"text": {"type": "string", "description": "Text to find and click"}, "app": {"type": "string"}, "timeout": {"type": "number"}}, "required": ["text"]},
+        "browser_navigate": {"type": "object", "properties": {"url": {"type": "string", "description": "URL to navigate to (http/https only)"}}, "required": ["url"]},
+        "browser_fill": {"type": "object", "properties": {"selector": {"type": "string", "description": "CSS selector for input field"}, "value": {"type": "string", "description": "Text to fill in"}}, "required": ["selector", "value"]},
+        "browser_click": {"type": "object", "properties": {"selector": {"type": "string", "description": "CSS selector to click"}}, "required": ["selector"]},
+        "browser_get_text": {"type": "object", "properties": {}},
+        "browser_evaluate": {"type": "object", "properties": {"js": {"type": "string", "description": "JavaScript to execute in page context"}}, "required": ["js"]},
     }
 
     TOOL_DESCRIPTIONS = {
@@ -115,6 +120,11 @@ async def _run_mcp_server(cfg):
         "system_mask": "Re-enable PII masking after temporary unmask",
         "vision_ui_elements": "Get UI elements (buttons, checkboxes, links, text fields) via Accessibility API — precise clickable targets",
         "action_click_and_wait": "Find text, click it, wait for screen to stabilize, return new state — replaces click+sleep+read",
+        "browser_navigate": "Navigate Chrome to URL via DevTools Protocol — reliable, no keyboard issues",
+        "browser_fill": "Fill a form input by CSS selector — works where action_type_text fails",
+        "browser_click": "Click element by CSS selector — precise DOM click, not screen coordinates",
+        "browser_get_text": "Get full page text via DOM — faster and more reliable than OCR for web pages",
+        "browser_evaluate": "Execute JavaScript in page context and return result",
     }
 
     @server.list_tools()
@@ -146,7 +156,7 @@ async def _run_mcp_server(cfg):
         except Exception as e:
             return [TextContent(type="text", text=json.dumps({"error": str(e)}))]
 
-    print(f"puppet-ai v2: {len(tools)} tools ready (vision + action + system)", file=sys.stderr)
+    print(f"puppet-ai v2: {len(tools)} tools ready (vision + browser + action + system)", file=sys.stderr)
     async with stdio_server() as (read, write):
         init_options = server.create_initialization_options()
         init_options.instructions = MCP_INSTRUCTIONS

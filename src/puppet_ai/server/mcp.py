@@ -11,6 +11,7 @@ from puppet_ai.core.capture import ScreenCapture
 from puppet_ai.core.actions import DesktopActions
 from puppet_ai.core.pii_filter import PiiFilter
 from puppet_ai.core.ocr_cache import OcrCache
+from puppet_ai.core.cdp import CDPClient
 
 
 @dataclass
@@ -19,6 +20,7 @@ class VisionPipeContext:
     actions: DesktopActions
     pii_filter: PiiFilter = field(default_factory=PiiFilter)
     ocr_cache: OcrCache = field(default_factory=OcrCache)
+    cdp: CDPClient = field(default_factory=CDPClient)
     _unmask_approved: bool = False
 
 
@@ -368,6 +370,83 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
             "new_text_preview": new_text[:1000],
         }
 
+    async def browser_navigate(url: str) -> dict:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            return {"error": f"Only http/https URLs allowed, got: {parsed.scheme}"}
+        try:
+            await ctx.cdp.navigate(url)
+            text = await ctx.cdp.evaluate("document.title")
+            return {"status": "ok", "action": "browser_navigate", "url": url, "title": str(text)}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_fill(selector: str, value: str) -> dict:
+        try:
+            import json as _json
+            js = f"""
+            (function() {{
+                var el = document.querySelector({_json.dumps(selector)});
+                if (!el) return {{error: 'Element not found: ' + {_json.dumps(selector)}}};
+                el.focus();
+                el.value = {_json.dumps(value)};
+                el.dispatchEvent(new Event('input', {{bubbles: true}}));
+                el.dispatchEvent(new Event('change', {{bubbles: true}}));
+                return {{status: 'ok', tag: el.tagName, id: el.id}};
+            }})()
+            """
+            result = await ctx.cdp.evaluate(js)
+            if isinstance(result, dict) and result.get("error"):
+                return result
+            return {"status": "ok", "action": "browser_fill", "selector": selector, "length": len(value)}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_click(selector: str) -> dict:
+        try:
+            import json as _json
+            js = f"""
+            (function() {{
+                var el = document.querySelector({_json.dumps(selector)});
+                if (!el) return {{error: 'Element not found: ' + {_json.dumps(selector)}}};
+                el.click();
+                return {{status: 'ok', tag: el.tagName, text: el.innerText ? el.innerText.substring(0, 100) : ''}};
+            }})()
+            """
+            result = await ctx.cdp.evaluate(js)
+            if isinstance(result, dict) and result.get("error"):
+                return result
+            return {"status": "ok", "action": "browser_click", "selector": selector}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_get_text() -> dict:
+        try:
+            text = await ctx.cdp.evaluate("document.body.innerText")
+            title = await ctx.cdp.evaluate("document.title")
+            url = await ctx.cdp.evaluate("window.location.href")
+            return {"status": "ok", "title": str(title), "url": str(url), "text": str(text)[:5000]}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
+    async def browser_evaluate(js: str) -> dict:
+        try:
+            result = await ctx.cdp.evaluate(js)
+            return {"status": "ok", "result": str(result)[:3000]}
+        except ConnectionError as e:
+            return {"error": str(e)}
+        except Exception as e:
+            return {"error": f"CDP error: {e}"}
+
     return {
         "vision_list_windows": vision_list_windows,
         "vision_get_state": vision_get_state,
@@ -396,4 +475,9 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
         "system_mask": system_mask,
         "vision_ui_elements": vision_ui_elements,
         "action_click_and_wait": action_click_and_wait,
+        "browser_navigate": browser_navigate,
+        "browser_fill": browser_fill,
+        "browser_click": browser_click,
+        "browser_get_text": browser_get_text,
+        "browser_evaluate": browser_evaluate,
     }
