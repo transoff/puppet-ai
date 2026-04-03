@@ -352,6 +352,14 @@ puppet-ai serve --preset balanced  # default
 puppet-ai serve --preset quality   # max accuracy
 ```
 
+## Known Limitations
+
+- **Safari** — `type_text` and `Cmd+V` don't work reliably in web input fields. Safari restricts programmatic input and Accessibility API access for web content. Use Chrome for full browser automation.
+- **Electron apps** — some Electron apps (e.g. Dolphin Anty) block clipboard paste in input fields.
+- **Safari Accessibility** — returns 0 UI elements for web page content. Native macOS apps and Chrome work fine.
+
+For full browser automation, **Chrome is recommended** over Safari.
+
 ## Requirements
 
 - macOS 13+ (Ventura or later)
