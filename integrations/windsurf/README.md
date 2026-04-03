@@ -5,7 +5,7 @@ Enable Windsurf's Cascade agent to control your macOS desktop with screen readin
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

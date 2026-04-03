@@ -5,7 +5,7 @@ Enable Codex to control your macOS desktop with screen reading and input automat
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

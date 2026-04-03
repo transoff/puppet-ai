@@ -5,7 +5,7 @@ Give Cursor full macOS desktop control: OCR reading, mouse/keyboard input, and U
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

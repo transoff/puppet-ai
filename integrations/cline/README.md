@@ -5,7 +5,7 @@ Give Cline (VS Code extension) full macOS desktop control with OCR screen readin
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

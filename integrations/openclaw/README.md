@@ -5,7 +5,7 @@ Give OpenClaw agents full macOS desktop control with OCR screen reading and auto
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

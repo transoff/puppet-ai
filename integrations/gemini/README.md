@@ -5,7 +5,7 @@ Give Gemini CLI full control of your macOS desktop: OCR screen reading, mouse, k
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

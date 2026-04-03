@@ -5,7 +5,7 @@ Enable Zed's assistant to control your macOS desktop with OCR screen reading and
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 

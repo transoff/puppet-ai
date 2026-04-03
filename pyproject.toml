@@ -32,7 +32,7 @@ gemini = ["google-genai>=1.0"]
 openai = ["openai>=1.50"]
 apple-vision = ["pyobjc-framework-Vision>=10.0", "pyobjc-framework-ScreenCaptureKit>=10.0"]
 mlx = ["mlx>=0.20", "mlx-vlm>=0.1"]
-all = ["puppet-ai[anthropic,gemini,openai,apple-vision,mlx]"]
+all = ["puppet-agent[anthropic,gemini,openai,apple-vision,mlx]"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.24", "ruff>=0.5"]
 
 [project.scripts]

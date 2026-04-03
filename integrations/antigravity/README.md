@@ -5,7 +5,7 @@ Enable Antigravity agents to control your macOS desktop with full screen reading
 ## Prerequisites
 
 ```bash
-pip install puppet-ai
+pip install puppet-agent
 # Grant accessibility permissions: System Settings → Privacy & Security → Accessibility
 ```
 
