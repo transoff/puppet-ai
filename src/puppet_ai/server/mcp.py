@@ -12,6 +12,7 @@ from puppet_ai.core.actions import DesktopActions
 from puppet_ai.core.pii_filter import PiiFilter
 from puppet_ai.core.ocr_cache import OcrCache
 from puppet_ai.core.cdp import CDPClient
+from puppet_ai.core.vision_agent import VisionAgent
 
 
 @dataclass
@@ -21,6 +22,7 @@ class VisionPipeContext:
     pii_filter: PiiFilter = field(default_factory=PiiFilter)
     ocr_cache: OcrCache = field(default_factory=OcrCache)
     cdp: CDPClient = field(default_factory=CDPClient)
+    vision_agent: VisionAgent = field(default_factory=VisionAgent)
     _unmask_approved: bool = False
 
 
@@ -103,8 +105,13 @@ def create_all_tools(ctx: VisionPipeContext) -> dict[str, Any]:
 
         buf = io.BytesIO()
         pil.save(buf, format="JPEG", quality=75)
-        encoded = base64.b64encode(buf.getvalue()).decode()
-        return {"image_base64": encoded, "width": pil.width, "height": pil.height}
+        jpeg_bytes = buf.getvalue()
+        encoded = base64.b64encode(jpeg_bytes).decode()
+        result = {"image_base64": encoded, "width": pil.width, "height": pil.height}
+        ai_description = await ctx.vision_agent.analyze(jpeg_bytes)
+        if ai_description:
+            result["ai_description"] = ai_description
+        return result
 
     async def vision_get_changes() -> dict:
         return {"changes": [], "note": "Change detection requires continuous monitoring (future feature)"}
